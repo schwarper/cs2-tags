@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "cs2-tags", "cs2-tags\cs2-tags.csproj", "{8F7EF308-8867-4802-B12F-5E27A2AF9995}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TagApi", "TagApi\TagApi.csproj", "{A4E0FE20-CD3C-4E3D-95CE-AE48F7A77DF7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8F7EF308-8867-4802-B12F-5E27A2AF9995}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8F7EF308-8867-4802-B12F-5E27A2AF9995}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8F7EF308-8867-4802-B12F-5E27A2AF9995}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8F7EF308-8867-4802-B12F-5E27A2AF9995}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A4E0FE20-CD3C-4E3D-95CE-AE48F7A77DF7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A4E0FE20-CD3C-4E3D-95CE-AE48F7A77DF7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A4E0FE20-CD3C-4E3D-95CE-AE48F7A77DF7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A4E0FE20-CD3C-4E3D-95CE-AE48F7A77DF7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9061A6F9-8330-43EE-A1A0-6DBC08696E5D}
+	EndGlobalSection
+EndGlobal

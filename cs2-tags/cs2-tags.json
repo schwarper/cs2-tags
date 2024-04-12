@@ -1,0 +1,30 @@
+{
+    "deadicon": "\u2620",
+    "tags": {
+        "default": {
+            "ScoreTag": "",
+            "ChatTag": "",
+            "NameColor": "{TeamColor}",
+            "ChatColor": "{White}"
+        },
+        "76561199165718810": {
+            "ScoreTag": "schwarper",
+            "ChatTag": "{DarkRed}[schwarper] ",
+            "NameColor": "{TeamColor}",
+            "ChatColor": "{Green}"
+        },
+        "#Owner": {
+            "ScoreTag": "Owner",
+            "ChatTag": "{DarkRed}[Owner] ",
+            "NameColor": "{TeamColor}",
+            "ChatColor": "{Green}"
+        },
+        "@css/admin": {
+            "ScoreTag": "Admin",
+            "ChatTag": "{DarkRed}[Admin] ",
+            "NameColor": "{TeamColor}",
+            "ChatColor": "{Green}"
+        }
+    },
+    "ConfigVersion": 1
+}
