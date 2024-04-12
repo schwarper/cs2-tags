@@ -73,8 +73,10 @@ Orange
 
 ## Screenshots
 
-![image](https://github.com/schwarper/cs2-tags/assets/75811921/d7dea9c8-0183-415a-841b-e62ca0cc1e31)
+![image](https://github.com/schwarper/cs2-tags/assets/75811921/e49e2c4a-2ead-4645-bcf4-2f9a55bb262f)
 
-![image](https://github.com/schwarper/cs2-tags/assets/75811921/fa2fd391-ea45-43e3-bd76-338082970b61)
+![image](https://github.com/schwarper/cs2-tags/assets/75811921/764cd820-c99e-4c23-be20-3123651fd286)
 
-![image](https://github.com/schwarper/cs2-tags/assets/75811921/d4bc4425-a9a9-4534-8de6-f8c6464194a2)
+![image](https://github.com/schwarper/cs2-tags/assets/75811921/9c7ba5f4-b54b-444d-ba1b-acac36289ac2)
+
+
