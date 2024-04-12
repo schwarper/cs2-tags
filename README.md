@@ -1,6 +1,14 @@
 
 # cs2-tags
 
+Credits :
+
+[@daffyyyy](https://github.com/daffyyyy/)
+
+[Hextags plugin for CSGO](https://github.com/Hexer10/HexTags)
+
+
+
 ## Commands
 ```
 css_tags_reload - Reloads tag
