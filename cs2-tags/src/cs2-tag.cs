@@ -2,7 +2,6 @@
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Capabilities;
 using CounterStrikeSharp.API.Modules.Admin;
-using System.Collections.Concurrent;
 using TagApi;
 using static TagApi.Tag;
 
@@ -11,12 +10,12 @@ namespace Tag;
 public partial class Tag : BasePlugin, IPluginConfig<TagConfig>
 {
     public override string ModuleName => "Tag";
-    public override string ModuleVersion => "0.0.1";
+    public override string ModuleVersion => "0.0.2";
     public override string ModuleAuthor => "schwarper";
 
     public TagConfig Config { get; set; } = new TagConfig();
-    public ConcurrentDictionary<int, CTag> PlayerDatas { get; set; } = new ConcurrentDictionary<int, CTag>();
-    public bool[] PlayerToggleTags { get; set; } = new bool[64];
+    public Dictionary<int, CTag> PlayerTagDatas { get; set; } = [];
+    public Dictionary<int, bool> PlayerToggleTags { get; set; } = [];
     public static Tag Instance { get; set; } = new Tag();
     public int GlobalTick { get; set; }
 
@@ -25,12 +24,6 @@ public partial class Tag : BasePlugin, IPluginConfig<TagConfig>
         Capabilities.RegisterPluginCapability(ITagApi.Capability, () => new TagAPI());
 
         Instance = this;
-
-        for (int i = 0; i < 64; i++)
-        {
-            PlayerDatas[i] = new();
-            PlayerToggleTags[i] = new();
-        }
 
         if (hotReload)
         {
@@ -42,7 +35,6 @@ public partial class Tag : BasePlugin, IPluginConfig<TagConfig>
 
     public void OnConfigParsed(TagConfig config)
     {
-        Json.ReadCore();
         Config = config;
     }
 
@@ -50,13 +42,14 @@ public partial class Tag : BasePlugin, IPluginConfig<TagConfig>
     {
         foreach (CCSPlayerController player in Utilities.GetPlayers())
         {
-            Instance.PlayerDatas[player.Slot] = GetTag(player);
+            Instance.PlayerTagDatas.Add(player.Slot, GetTag(player));
+            Instance.PlayerToggleTags.Add(player.Slot, true);
         }
     }
 
     public static CTag GetTag(CCSPlayerController player)
     {
-        ConcurrentDictionary<string, CTag> tags = Instance.Config.Tags;
+        Dictionary<string, CTag> tags = Instance.Config.Tags;
 
         CTag steamidTag = tags.FirstOrDefault(tag => tag.Key == player.SteamID.ToString()).Value;
 

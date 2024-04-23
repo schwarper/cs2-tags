@@ -1,4 +1,5 @@
-﻿using CounterStrikeSharp.API.Modules.Utils;
+﻿using CounterStrikeSharp.API.Core.Translations;
+using CounterStrikeSharp.API.Modules.Utils;
 using System.Reflection;
 using static Tag.Tag;
 

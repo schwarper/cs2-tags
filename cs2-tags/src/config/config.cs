@@ -1,5 +1,4 @@
 ﻿using CounterStrikeSharp.API.Core;
-using System.Collections.Concurrent;
 using System.Text.Json.Serialization;
 using static TagApi.Tag;
 
@@ -18,7 +17,7 @@ public class TagConfig : BasePluginConfig
     };
 
     [JsonPropertyName("tags")]
-    public ConcurrentDictionary<string, CTag> Tags { get; set; } = new ConcurrentDictionary<string, CTag>
+    public Dictionary<string, CTag> Tags { get; set; } = new Dictionary<string, CTag>
     {
         ["default"] = new CTag { ChatColor = "", ChatTag = "{Grey}[Player]", NameColor = "", ScoreTag = "" }
     };

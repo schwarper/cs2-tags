@@ -13,6 +13,7 @@ public static class Event
     public static void Load()
     {
         Instance.RegisterEventHandler<EventPlayerConnectFull>(OnPlayerConnectFull);
+        Instance.RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
         Instance.AddCommandListener("say", OnPlayerChat);
         Instance.AddCommandListener("say_team", OnPlayerChat);
         Instance.RegisterListener<OnTick>(OnTick);
@@ -27,8 +28,26 @@ public static class Event
             return HookResult.Continue;
         }
 
-        Instance.PlayerToggleTags[player.Slot] = true;
-        Instance.PlayerDatas[player.Slot] = GetTag(player);
+        Instance.PlayerTagDatas.Add(player.Slot, GetTag(player));
+        Instance.PlayerToggleTags.Add(player.Slot, true);
+
+        return HookResult.Continue;
+    }
+
+    public static HookResult OnPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo info)
+    {
+        CCSPlayerController player = @event.Userid;
+
+        if (player == null || !player.IsValid)
+        {
+            return HookResult.Continue;
+        }
+
+        if (Instance.PlayerTagDatas.TryGetValue(player.Slot, out _))
+        {
+            Instance.PlayerTagDatas.Remove(player.Slot);
+            Instance.PlayerToggleTags.Remove(player.Slot);
+        }
 
         return HookResult.Continue;
     }
@@ -42,17 +61,20 @@ public static class Event
 
         string command = info.GetArg(1);
 
-        if (Json.PublicChatTrigger.Any(i => command.StartsWith(i)))
+        if (CoreConfig.PublicChatTrigger.Any(i => command.StartsWith(i)))
         {
-            player.ExecuteClientCommandFromServer($"css_{command.Substring(1)}");
+            player.ExecuteClientCommandFromServer($"css_{command[1..]}");
         }
 
-        if (Json.SilentChatTrigger.Any(i => command.StartsWith(i)))
+        if (CoreConfig.SilentChatTrigger.Any(i => command.StartsWith(i)))
         {
             return HookResult.Handled;
         }
 
-        CTag playerData = Instance.PlayerDatas[player.Slot]!;
+        if (!Instance.PlayerTagDatas.TryGetValue(player.Slot, out CTag? playerData) || playerData == null)
+        {
+            return HookResult.Continue;
+        }
 
         string deadname = player.PawnIsAlive ? string.Empty : Instance.Config.Settings["deadname"];
         bool teammessage = info.GetArg(0) == "say_team";
@@ -93,20 +115,18 @@ public static class Event
 
         foreach (CCSPlayerController player in Utilities.GetPlayers())
         {
-            string playerclan = Instance.PlayerDatas[player.Slot].ScoreTag;
-
-            if (playerclan == string.Empty)
+            if (!Instance.PlayerTagDatas.TryGetValue(player.Slot, out CTag? tag) || tag == null || tag.ScoreTag == string.Empty)
             {
                 continue;
             }
 
-            player.Clan = playerclan;
+            player.Clan = tag.ScoreTag;
 
             //string playername = player.PlayerName;
             //player.PlayerName = playername + ' ';
 
-            Utilities.SetStateChanged(player, "CCSPlayerController", "m_szClan");
-            Utilities.SetStateChanged(player, "CBasePlayerController", "m_iszPlayerName");
+            //Utilities.SetStateChanged(player, "CCSPlayerController", "m_szClan");
+            //Utilities.SetStateChanged(player, "CBasePlayerController", "m_iszPlayerName");
         }
     }
 }
