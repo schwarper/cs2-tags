@@ -2,7 +2,6 @@
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Commands;
-using static Tag.Tag;
 using static TagApi.Tag;
 
 namespace Tag;
@@ -13,7 +12,6 @@ public partial class Tag
     [RequiresPermissions("@css/root")]
     public void Command_Tags_Reload(CCSPlayerController? player, CommandInfo info)
     {
-        Json.ReadConfig();
         UpdatePlayerTags();
 
         info.ReplyToCommand("[cs2-tags] Tags are reloaded.");
@@ -24,9 +22,19 @@ public partial class Tag
     [CommandHelper(whoCanExecute: CommandUsage.CLIENT_ONLY)]
     public void Command_Toggletags(CCSPlayerController? player, CommandInfo info)
     {
-        if (Instance.PlayerToggleTags[player!.Slot])
+        if (player == null)
         {
-            Instance.PlayerDatas[player.Slot] = Instance.Config.Tags.FirstOrDefault(tag => tag.Key == "default").Value ?? new CTag();
+            return;
+        }
+
+        if (!Instance.PlayerToggleTags.TryGetValue(player.Slot, out bool value))
+        {
+            return;
+        }
+
+        if (value)
+        {
+            Instance.PlayerTagDatas[player.Slot] = Instance.Config.Tags.FirstOrDefault(tag => tag.Key == "default").Value ?? new CTag();
 
             Instance.PlayerToggleTags[player.Slot] = false;
 
@@ -34,7 +42,7 @@ public partial class Tag
         }
         else
         {
-            Instance.PlayerDatas[player.Slot] = GetTag(player);
+            Instance.PlayerTagDatas[player.Slot] = GetTag(player);
 
             Instance.PlayerToggleTags[player.Slot] = true;
 
