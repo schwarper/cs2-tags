@@ -53,7 +53,7 @@ Orange
 	"tags": {
 		"default": {
 			"ScoreTag": "",
-			"ChatTag": "",
+			"ChatTag": "{Grey}[Player]",
 			"NameColor": "{TeamColor}",
 			"ChatColor": "{White}"
 		}
