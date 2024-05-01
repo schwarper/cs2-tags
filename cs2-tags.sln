@@ -2,7 +2,7 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "cs2-tags", "cs2-tags\cs2-tags.csproj", "{8F7EF308-8867-4802-B12F-5E27A2AF9995}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TagApi", "TagApi\TagApi.csproj", "{A4E0FE20-CD3C-4E3D-95CE-AE48F7A77DF7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TagsApi", "TagsApi\TagsApi.csproj", "{A4E0FE20-CD3C-4E3D-95CE-AE48F7A77DF7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
