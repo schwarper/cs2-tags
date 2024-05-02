@@ -10,7 +10,7 @@ namespace Tags;
 public partial class Tags : BasePlugin, IPluginConfig<TagsConfig>
 {
     public override string ModuleName => "Tag";
-    public override string ModuleVersion => "0.0.2";
+    public override string ModuleVersion => "0.0.2a";
     public override string ModuleAuthor => "schwarper";
 
     public TagsConfig Config { get; set; } = new TagsConfig();
@@ -45,6 +45,9 @@ public partial class Tags : BasePlugin, IPluginConfig<TagsConfig>
 
     public static void UpdatePlayerTags()
     {
+        Instance.PlayerTagDatas.Clear();
+        Instance.PlayerToggleTags.Clear();
+
         foreach (CCSPlayerController player in Utilities.GetPlayers())
         {
             Instance.PlayerTagDatas.Add(player.Slot, GetTag(player));
