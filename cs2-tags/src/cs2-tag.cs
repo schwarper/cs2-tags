@@ -10,7 +10,7 @@ namespace Tags;
 public partial class Tags : BasePlugin, IPluginConfig<TagsConfig>
 {
     public override string ModuleName => "Tag";
-    public override string ModuleVersion => "0.0.2a";
+    public override string ModuleVersion => "0.0.3";
     public override string ModuleAuthor => "schwarper";
 
     public TagsConfig Config { get; set; } = new TagsConfig();

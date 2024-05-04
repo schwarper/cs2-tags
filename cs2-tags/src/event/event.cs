@@ -103,9 +103,9 @@ public static class Event
 
         if (info.GetArg(0) == "say_team")
         {
-            foreach (CCSPlayerController target in Utilities.GetPlayers().Where(target => target.Team == player.Team && target.IsValid && !target.IsBot))
+            foreach (CCSPlayerController target in Utilities.GetPlayers().Where(target => target.Team == player.Team && !target.IsBot))
             {
-                player.PrintToChat(message);
+                target.PrintToChat(message);
             }
         }
         else
