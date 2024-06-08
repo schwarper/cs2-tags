@@ -11,6 +11,12 @@ public class TagsAPI : ITagApi
     {
     }
 
+    public event OnPlayerChatDelegate? OnPlayerChat
+    {
+        add => Event.OnPlayerSay += value;
+        remove => Event.OnPlayerSay -= value;
+    }
+
     public string GetPlayerTag(CCSPlayerController player, Tags_Tags tag)
     {
         if (Instance.PlayerTagDatas.TryGetValue(player.Slot, out Tag? playerTag) && playerTag != null)

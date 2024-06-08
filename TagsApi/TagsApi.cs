@@ -1,4 +1,6 @@
-﻿namespace TagsApi;
+﻿using CounterStrikeSharp.API.Core;
+
+namespace TagsApi;
 
 public abstract class Tags
 {
@@ -21,4 +23,6 @@ public abstract class Tags
         ChatColor,
         NameColor
     }
+
+    public delegate HookResult OnPlayerChatDelegate(CCSPlayerController player, bool teammessage);
 }

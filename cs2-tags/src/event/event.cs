@@ -4,12 +4,15 @@ using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Utils;
 using static CounterStrikeSharp.API.Core.Listeners;
 using static Tags.Tags;
+using static Tags.TagsAPI;
 using static TagsApi.Tags;
 
 namespace Tags;
 
 public static class Event
 {
+    public static event OnPlayerChatDelegate? OnPlayerSay;
+
     public static void Load()
     {
         Instance.RegisterEventHandler<EventPlayerConnectFull>(OnPlayerConnectFull);
@@ -66,6 +69,13 @@ public static class Event
             return HookResult.Continue;
         }
 
+        bool teammessage = info.GetArg(0) == "say_team";
+
+        if (OnPlayerSay?.Invoke(player, teammessage) == HookResult.Handled)
+        {
+            return HookResult.Handled;
+        }
+
         if (!Instance.PlayerTagDatas.TryGetValue(player.Slot, out Tag? playerData) || playerData == null)
         {
             return HookResult.Continue;
@@ -75,11 +85,6 @@ public static class Event
 
         if (CoreConfig.PublicChatTrigger.Any(i => command.StartsWith(i)))
         {
-            /* TO DO
-             * Try to find something else, for now ignore it.
-            player.ExecuteClientCommandFromServer($"css_{command[1..]}");
-            */
-
             return HookResult.Continue;
         }
 
@@ -89,7 +94,6 @@ public static class Event
         }
 
         string deadname = player.PawnIsAlive ? string.Empty : Instance.Config.Settings["deadname"];
-        bool teammessage = info.GetArg(0) == "say_team";
         string tag = playerData.ChatTag;
         string namecolor = playerData.NameColor;
         string chatcolor = playerData.ChatColor;
@@ -114,6 +118,11 @@ public static class Event
         }
 
         return HookResult.Handled;
+    }
+
+    private static HookResult TagsApix_OnPlayerChat(CCSPlayerController player, bool teammessage)
+    {
+        throw new NotImplementedException();
     }
 
     public static void OnTick()
