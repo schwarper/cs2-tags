@@ -120,11 +120,6 @@ public static class Event
         return HookResult.Handled;
     }
 
-    private static HookResult TagsApix_OnPlayerChat(CCSPlayerController player, bool teammessage)
-    {
-        throw new NotImplementedException();
-    }
-
     public static void OnTick()
     {
         if (++Instance.GlobalTick != 200)
