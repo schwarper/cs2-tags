@@ -10,7 +10,7 @@ namespace Tags;
 public partial class Tags : BasePlugin, IPluginConfig<TagsConfig>
 {
     public override string ModuleName => "Tag";
-    public override string ModuleVersion => "0.0.3";
+    public override string ModuleVersion => "0.0.4";
     public override string ModuleAuthor => "schwarper";
 
     public TagsConfig Config { get; set; } = new TagsConfig();
@@ -18,6 +18,7 @@ public partial class Tags : BasePlugin, IPluginConfig<TagsConfig>
     public Dictionary<int, bool> PlayerToggleTags { get; set; } = [];
     public static Tags Instance { get; set; } = new Tags();
     public int GlobalTick { get; set; }
+    public static HashSet<ulong> PlayerGagList { get; set; } = [];
 
     public override void Load(bool hotReload)
     {

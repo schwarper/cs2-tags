@@ -4,6 +4,7 @@ using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Utils;
 using static CounterStrikeSharp.API.Core.Listeners;
 using static Tags.Tags;
+using static Tags.TagsAPI;
 using static TagsApi.Tags;
 
 namespace Tags;
@@ -66,30 +67,30 @@ public static class Event
             return HookResult.Continue;
         }
 
+        string command = info.GetArg(1);
+
+        if (CoreConfig.SilentChatTrigger.Any(i => command.StartsWith(i)))
+        {
+            return HookResult.Continue;
+        }
+
+        if (PlayerGagList.Contains(player.SteamID))
+        {
+            return HookResult.Handled;
+        }
+
+        if (CoreConfig.PublicChatTrigger.Any(i => command.StartsWith(i)))
+        {
+            return HookResult.Continue;
+        }
+
         if (!Instance.PlayerTagDatas.TryGetValue(player.Slot, out Tag? playerData) || playerData == null)
         {
             return HookResult.Continue;
         }
 
-        string command = info.GetArg(1);
-
-        if (CoreConfig.PublicChatTrigger.Any(i => command.StartsWith(i)))
-        {
-            /* TO DO
-             * Try to find something else, for now ignore it.
-            player.ExecuteClientCommandFromServer($"css_{command[1..]}");
-            */
-
-            return HookResult.Continue;
-        }
-
-        if (CoreConfig.SilentChatTrigger.Any(i => command.StartsWith(i)))
-        {
-            return HookResult.Handled;
-        }
-
-        string deadname = player.PawnIsAlive ? string.Empty : Instance.Config.Settings["deadname"];
         bool teammessage = info.GetArg(0) == "say_team";
+        string deadname = player.PawnIsAlive ? string.Empty : Instance.Config.Settings["deadname"];
         string tag = playerData.ChatTag;
         string namecolor = playerData.NameColor;
         string chatcolor = playerData.ChatColor;
