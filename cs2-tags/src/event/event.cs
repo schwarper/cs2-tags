@@ -16,7 +16,6 @@ public static class Event
         Instance.RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
         Instance.RegisterListener<OnTick>(OnTick);
 
-        Server.PrintToChatAll($"GAMEDATA IS LOADING [{GameData.GetSignature("UTIL_SayText2Filter")}");
         VirtualFunctions.UTIL_SayText2FilterFunc.Hook(OnSayText2Filter, HookMode.Pre);
     }
 
