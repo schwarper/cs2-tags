@@ -2,23 +2,23 @@
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Capabilities;
 using CounterStrikeSharp.API.Modules.Admin;
+using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
 using TagsApi;
 using static TagsApi.Tags;
 
 namespace Tags;
 
-public partial class Tags : BasePlugin, IPluginConfig<TagsConfig>
+public partial class Tags : BasePlugin, IPluginConfig<Config>
 {
-    public override string ModuleName => "Tag";
-    public override string ModuleVersion => "0.0.4";
+    public override string ModuleName => "Tags";
+    public override string ModuleVersion => "0.0.5";
     public override string ModuleAuthor => "schwarper";
 
-    public TagsConfig Config { get; set; } = new TagsConfig();
+    public Config Config { get; set; } = new Config();
     public Dictionary<int, Tag> PlayerTagDatas { get; set; } = [];
     public Dictionary<int, bool> PlayerToggleTags { get; set; } = [];
     public static Tags Instance { get; set; } = new Tags();
     public int GlobalTick { get; set; }
-    public static HashSet<ulong> PlayerGagList { get; set; } = [];
 
     public override void Load(bool hotReload)
     {
@@ -39,17 +39,21 @@ public partial class Tags : BasePlugin, IPluginConfig<TagsConfig>
         Event.Unload();
     }
 
-    public void OnConfigParsed(TagsConfig config)
+    public void OnConfigParsed(Config config)
     {
         Config = config;
     }
 
     public static void UpdatePlayerTags()
     {
+        Config.Update();
+
         Instance.PlayerTagDatas.Clear();
         Instance.PlayerToggleTags.Clear();
 
-        foreach (CCSPlayerController player in Utilities.GetPlayers())
+        var players = Utilities.GetPlayers();
+
+        foreach (CCSPlayerController player in players)
         {
             Instance.PlayerTagDatas.Add(player.Slot, GetTag(player));
             Instance.PlayerToggleTags.Add(player.Slot, true);

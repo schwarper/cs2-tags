@@ -11,16 +11,6 @@ public class TagsAPI : ITagApi
     {
     }
 
-    public void GagPlayer(ulong steamID)
-    {
-        PlayerGagList.Add(steamID);
-    }
-
-    public void UngagPlayer(ulong steamID)
-    {
-        PlayerGagList.Remove(steamID);
-    }
-
     public string GetPlayerTag(CCSPlayerController player, Tags_Tags tag)
     {
         if (Instance.PlayerTagDatas.TryGetValue(player.Slot, out Tag? playerTag) && playerTag != null)

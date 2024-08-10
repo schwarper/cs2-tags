@@ -1,10 +1,9 @@
 ﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Modules.Commands;
+using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
 using CounterStrikeSharp.API.Modules.Utils;
 using static CounterStrikeSharp.API.Core.Listeners;
 using static Tags.Tags;
-using static Tags.TagsAPI;
 using static TagsApi.Tags;
 
 namespace Tags;
@@ -15,16 +14,16 @@ public static class Event
     {
         Instance.RegisterEventHandler<EventPlayerConnectFull>(OnPlayerConnectFull);
         Instance.RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
-        Instance.AddCommandListener("say", OnPlayerChat, HookMode.Pre);
-        Instance.AddCommandListener("say_team", OnPlayerChat, HookMode.Pre);
         Instance.RegisterListener<OnTick>(OnTick);
+
+        Server.PrintToChatAll($"GAMEDATA IS LOADING [{GameData.GetSignature("UTIL_SayText2Filter")}");
+        VirtualFunctions.UTIL_SayText2FilterFunc.Hook(OnSayText2Filter, HookMode.Pre);
     }
 
     public static void Unload()
     {
-        Instance.RemoveCommandListener("say", OnPlayerChat, HookMode.Pre);
-        Instance.RemoveCommandListener("say_team", OnPlayerChat, HookMode.Pre);
         Instance.RemoveListener<OnTick>(OnTick);
+        VirtualFunctions.UTIL_SayText2FilterFunc.Unhook(OnSayText2Filter, HookMode.Pre);
     }
 
     public static HookResult OnPlayerConnectFull(EventPlayerConnectFull @event, GameEventInfo info)
@@ -60,61 +59,37 @@ public static class Event
         return HookResult.Continue;
     }
 
-    public static HookResult OnPlayerChat(CCSPlayerController? player, CommandInfo info)
+    public static HookResult OnSayText2Filter(DynamicHook hook)
     {
-        if (player == null || info.GetArg(1).Length == 0)
+        static string FormatMessage(string deadIcon, string teamname, string tag, string namecolor, string chatcolor, string playername, string message, CsTeam team)
+        {
+            return Lib.ReplaceTags($" {deadIcon}{teamname}{tag}{namecolor}{playername}{ChatColors.Default}: {chatcolor}{message}", team);
+        }
+
+        CCSPlayerController player = hook.GetParam<CCSPlayerController>(1);
+
+        if (!Instance.PlayerTagDatas.TryGetValue(player.Slot, out Tag? playerData))
         {
             return HookResult.Continue;
         }
 
-        string command = info.GetArg(1);
+        string msgT = hook.GetParam<string>(3);
+        string playername = hook.GetParam<string>(4);
+        string message = hook.GetParam<string>(5);
 
-        if (CoreConfig.SilentChatTrigger.Any(i => command.StartsWith(i)))
-        {
-            return HookResult.Continue;
-        }
+        bool isTeamMessage = !msgT.Contains("All");
 
-        if (PlayerGagList.Contains(player.SteamID))
-        {
-            return HookResult.Handled;
-        }
-
-        if (CoreConfig.PublicChatTrigger.Any(i => command.StartsWith(i)))
-        {
-            return HookResult.Continue;
-        }
-
-        if (!Instance.PlayerTagDatas.TryGetValue(player.Slot, out Tag? playerData) || playerData == null)
-        {
-            return HookResult.Continue;
-        }
-
-        bool teammessage = info.GetArg(0) == "say_team";
         string deadname = player.PawnIsAlive ? string.Empty : Instance.Config.Settings["deadname"];
+        string teamname = isTeamMessage ? Lib.TeamName(player.Team) : string.Empty;
         string tag = playerData.ChatTag;
         string namecolor = playerData.NameColor;
         string chatcolor = playerData.ChatColor;
 
-        string message = FormatMessage(deadname, teammessage ? Lib.TeamName(player.Team) : string.Empty, tag, namecolor, chatcolor, player, command);
+        string formattedMessage = FormatMessage(deadname, teamname, tag, namecolor, chatcolor, playername, message, player.Team);
 
-        static string FormatMessage(string deadIcon, string teamname, string tag, string namecolor, string chatcolor, CCSPlayerController player, string text)
-        {
-            return Lib.ReplaceTags($" {deadIcon}{teamname}{tag}{namecolor}{player.PlayerName}{ChatColors.Default}: {chatcolor}{text}", player.Team);
-        }
+        hook.SetParam(3, formattedMessage);
 
-        if (info.GetArg(0) == "say_team")
-        {
-            foreach (CCSPlayerController target in Utilities.GetPlayers().Where(target => target.Team == player.Team && !target.IsBot))
-            {
-                target.PrintToChat(message);
-            }
-        }
-        else
-        {
-            Server.PrintToChatAll(message);
-        }
-
-        return HookResult.Handled;
+        return HookResult.Continue;
     }
 
     public static void OnTick()
@@ -126,7 +101,9 @@ public static class Event
 
         Instance.GlobalTick = 0;
 
-        foreach (CCSPlayerController player in Utilities.GetPlayers())
+        var players = Utilities.GetPlayers();
+
+        foreach (CCSPlayerController player in players)
         {
             if (!Instance.PlayerTagDatas.TryGetValue(player.Slot, out Tag? tag) || tag == null || tag.ScoreTag == string.Empty)
             {
