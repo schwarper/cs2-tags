@@ -51,18 +51,24 @@ public static class Config_Config
             return steamidTag;
         }
 
-        Tag groupTag = tags.FirstOrDefault(tag => tag.Key.StartsWith('#') && AdminManager.PlayerInGroup(player, tag.Key)).Value;
-
-        if (groupTag != null)
+        foreach (var tag in tags.Where(tag => tag.Key.StartsWith('#')))
         {
-            return groupTag;
+            bool isInGroup = AdminManager.PlayerInGroup(player, tag.Key);
+
+            if (isInGroup)
+            {
+                return tag.Value;
+            }
         }
 
-        Tag permissionTag = tags.FirstOrDefault(tag => tag.Key.StartsWith('@') && AdminManager.PlayerHasPermissions(player, tag.Key)).Value;
-
-        if (permissionTag != null)
+        foreach (var tag in tags.Where(tag => tag.Key.StartsWith('@')))
         {
-            return permissionTag;
+            bool hasPermission = AdminManager.PlayerHasPermissions(player, tag.Key);
+
+            if (hasPermission)
+            {
+                return tag.Value;
+            }
         }
 
         return Config.DefaultTags;
