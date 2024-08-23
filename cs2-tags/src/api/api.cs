@@ -1,5 +1,6 @@
 ﻿using CounterStrikeSharp.API.Core;
 using TagsApi;
+using static Tags.Config_Config;
 using static Tags.Tags;
 using static TagsApi.Tags;
 
@@ -7,13 +8,9 @@ namespace Tags;
 
 public class TagsAPI : ITagApi
 {
-    public TagsAPI()
-    {
-    }
-
     public string GetPlayerTag(CCSPlayerController player, Tags_Tags tag)
     {
-        if (Instance.PlayerTagDatas.TryGetValue(player.Slot, out Tag? playerTag) && playerTag != null)
+        if (PlayerTags.TryGetValue(player.SteamID, out Tag? playerTag))
         {
             return tag switch
             {
@@ -22,43 +19,45 @@ public class TagsAPI : ITagApi
                 _ => string.Empty
             };
         }
-
         return string.Empty;
     }
 
     public void SetPlayerTag(CCSPlayerController player, Tags_Tags tag, string newtag)
     {
-        if (Instance.PlayerTagDatas.TryGetValue(player.Slot, out Tag? playertag) && playertag != null)
+        if (PlayerTags.TryGetValue(player.SteamID, out Tag? playertag))
         {
-            if (tag == Tags_Tags.ScoreTag)
+            switch (tag)
             {
-                playertag.ScoreTag = newtag;
-            }
-            else
-            {
-                playertag.ChatTag = newtag;
+                case Tags_Tags.ScoreTag:
+                    playertag.ScoreTag = newtag;
+                    break;
+                case Tags_Tags.ChatTag:
+                    playertag.ChatTag = newtag;
+                    break;
             }
         }
     }
 
     public void ResetPlayerTag(CCSPlayerController player, Tags_Tags tag)
     {
-        if (Instance.PlayerTagDatas.TryGetValue(player.Slot, out Tag? playertag) && playertag != null)
+        if (PlayerTags.TryGetValue(player.SteamID, out Tag? playertag))
         {
-            if (tag == Tags_Tags.ScoreTag)
+            Tag defaultTag = GetTag(player);
+            switch (tag)
             {
-                playertag.ScoreTag = GetTag(player).ScoreTag;
-            }
-            else
-            {
-                playertag.ChatTag = GetTag(player).ChatTag;
+                case Tags_Tags.ScoreTag:
+                    playertag.ScoreTag = defaultTag.ScoreTag;
+                    break;
+                case Tags_Tags.ChatTag:
+                    playertag.ChatTag = defaultTag.ChatTag;
+                    break;
             }
         }
     }
 
     public string GetPlayerColor(CCSPlayerController player, Tags_Colors color)
     {
-        if (Instance.PlayerTagDatas.TryGetValue(player.Slot, out Tag? playertag) && playertag != null)
+        if (PlayerTags.TryGetValue(player.SteamID, out Tag? playertag))
         {
             return color switch
             {
@@ -73,38 +72,39 @@ public class TagsAPI : ITagApi
 
     public void SetPlayerColor(CCSPlayerController player, Tags_Colors color, string newcolor)
     {
-        if (Instance.PlayerTagDatas.TryGetValue(player.Slot, out Tag? playertag) && playertag != null)
+        if (PlayerTags.TryGetValue(player.SteamID, out Tag? playertag))
         {
-            if (color == Tags_Colors.ChatColor)
+            switch (color)
             {
-                playertag.ChatColor = newcolor;
-            }
-            else
-            {
-                playertag.NameColor = newcolor;
+                case Tags_Colors.NameColor:
+                    playertag.NameColor = newcolor;
+                    break;
+                case Tags_Colors.ChatColor:
+                    playertag.ChatColor = newcolor;
+                    break;
             }
         }
     }
 
     public void ResetPlayerColor(CCSPlayerController player, Tags_Colors color)
     {
-        if (Instance.PlayerTagDatas.TryGetValue(player.Slot, out Tag? playertag) && playertag != null)
+        if (PlayerTags.TryGetValue(player.SteamID, out Tag? playertag))
         {
             Tag defaultTag = GetTag(player);
-
-            if (color == Tags_Colors.ChatColor)
+            switch (color)
             {
-                playertag.ChatColor = defaultTag.ChatColor;
-            }
-            else
-            {
-                playertag.NameColor = defaultTag.NameColor;
+                case Tags_Colors.NameColor:
+                    playertag.NameColor = defaultTag.NameColor;
+                    break;
+                case Tags_Colors.ChatColor:
+                    playertag.ChatColor = defaultTag.ChatColor;
+                    break;
             }
         }
     }
 
     public void ReloadTags()
     {
-        UpdatePlayerTags();
+        Reload();
     }
 }
