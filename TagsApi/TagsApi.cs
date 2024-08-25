@@ -1,6 +1,4 @@
-﻿using CounterStrikeSharp.API.Core;
-
-namespace TagsApi;
+﻿namespace TagsApi;
 
 public abstract class Tags
 {

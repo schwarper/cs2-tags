@@ -51,7 +51,7 @@ public static class Config_Config
             return steamidTag;
         }
 
-        foreach (var tag in tags.Where(tag => tag.Key.StartsWith('#')))
+        foreach (KeyValuePair<string, Tag> tag in tags.Where(tag => tag.Key.StartsWith('#')))
         {
             bool isInGroup = AdminManager.PlayerInGroup(player, tag.Key);
 
@@ -61,7 +61,7 @@ public static class Config_Config
             }
         }
 
-        foreach (var tag in tags.Where(tag => tag.Key.StartsWith('@')))
+        foreach (KeyValuePair<string, Tag> tag in tags.Where(tag => tag.Key.StartsWith('@')))
         {
             bool hasPermission = AdminManager.PlayerHasPermissions(player, tag.Key);
 
