@@ -9,9 +9,11 @@ Discord link : [Discord server](https://discord.gg/4zQfUzjk36)
 
 ## Credits
 
+[Hextags plugin for CSGO](https://github.com/Hexer10/HexTags)
+
 [@daffyyyy](https://github.com/daffyyyy/)
 
-[Hextags plugin for CSGO](https://github.com/Hexer10/HexTags)
+[@Yarukon](https://github.com/Yarukon)
 
 
 
@@ -25,6 +27,7 @@ css_toggletags - Hide/Show tag
 ```
 Default
 White
+TeamColor
 DarkRed
 Green
 LightYellow
@@ -47,50 +50,34 @@ Orange
 ```
 
 ## Configuration
-```json
-{
-	"settings": {
-		"deadname": "{TeamColor}*DEAD* ",
-		"nonename": "{White}(NONE) ",
-		"specname": "{Purple}(SPEC) ",
-		"tname": "{TeamColor}(T) ",
-		"ctname": "{TeamColor}(CT) "
-	},
-	"tags": {
-		"default": {
-			"ScoreTag": "",
-			"ChatTag": "{Grey}[Player]",
-			"NameColor": "{TeamColor}",
-			"ChatColor": "{White}"
-		}
-		"76561198397942039": {
-			"ScoreTag": "ADMIN",
-			"ChatTag": "{yellow}",
-			"NameColor": "{yellow}",
-			"ChatColor": "{Green}"
-		},
-		"#Owner": {
-			"ScoreTag": "Owner",
-			"ChatTag": "{DarkRed}[Owner] ",
-			"NameColor": "{TeamColor}",
-			"ChatColor": "{Green}"
-		},
-		"@css/admin": {
-			"ScoreTag": "Admin",
-			"ChatTag": "{DarkRed}[Admin] ",
-			"NameColor": "{TeamColor}",
-			"ChatColor": "{Green}"
-		}
-	}
-}
+```toml
+[Settings]
+DeadName = "☠"
+NoneName = "{White}(NONE)"
+SpecName = "{Purple}(SPEC)"
+TName = "{Yellow}(T)"
+CTName = "{Blue}(CT)"
+
+[Default]
+ScoreTag = ""
+ChatTag = "{Grey}[Player]"
+ChatColor = "{White}"
+NameColor = "{TeamColor}"
+
+[76561199165718810]
+ScoreTag = "schwarper"
+ChatTag = "{Red}[schwarper] "
+ChatColor = "{green}"
+NameColor = "{TeamColor}"
+
+["#OWNER"]
+ScoreTag = "OWNER"
+ChatTag = "{Red}[OWNER] "
+ChatColor = "{green}"
+NameColor = "{TeamColor}"
 ```
 
 ## Screenshots
+![tag1](https://github.com/user-attachments/assets/93a333b4-55e0-4582-8f09-8ec3010724d3)
 
-![image](https://github.com/schwarper/cs2-tags/assets/75811921/e49e2c4a-2ead-4645-bcf4-2f9a55bb262f)
-
-![image](https://github.com/schwarper/cs2-tags/assets/75811921/764cd820-c99e-4c23-be20-3123651fd286)
-
-![image](https://github.com/schwarper/cs2-tags/assets/75811921/9c7ba5f4-b54b-444d-ba1b-acac36289ac2)
-
-
+![tag2](https://github.com/user-attachments/assets/9066cb2f-2b6d-4268-9db3-b824de28d05e)
