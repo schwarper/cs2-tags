@@ -1,4 +1,4 @@
-﻿using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Admin;
@@ -9,6 +9,10 @@ using System.Runtime.InteropServices;
 using System.Text;
 using static Tags.Config_Config;
 using static TagsApi.Tags;
+using static CounterStrikeSharp.API.Core.Listeners;
+using CounterStrikeSharp.API;
+using CounterStrikeSharp.API.Modules.Entities;
+using CounterStrikeSharp.API.Modules.Timers;
 
 namespace Tags;
 
@@ -21,12 +25,14 @@ public class Tags : BasePlugin
     public static Dictionary<ulong, Tag> PlayerTags { get; set; } = [];
     public static Dictionary<ulong, bool> PlayerToggleTags { get; set; } = [];
 
-    public nint stringPtr = 0;
+    public List<nint> strPtrs = [];
 
     public override void Load(bool hotReload)
     {
         VirtualFunctions.UTIL_SayText2FilterFunc.Hook(OnSayTextPre, HookMode.Pre);
         VirtualFunctions.UTIL_SayText2FilterFunc.Hook(OnSayTextPost, HookMode.Post);
+
+        AddTimer(5.0f, UpdateTags, TimerFlags.REPEAT);
 
         if (hotReload)
         {
@@ -96,11 +102,7 @@ public class Tags : BasePlugin
         string chatcolor = playerTag.ChatColor;
 
         string formattedMessage = FormatMessage(deadname, teamname, tag, namecolor, chatcolor, playername, message, player.Team);
-        byte[] bytes = Encoding.UTF8.GetBytes(formattedMessage + "\0");
-        stringPtr = Marshal.AllocHGlobal(bytes.Length);
-        Marshal.Copy(bytes, 0, stringPtr, bytes.Length);
-
-        hook.SetParam(3, stringPtr);
+        hook.SetParam(3, AllocString(formattedMessage));
         return HookResult.Changed;
 
         static string ReplaceTags(string message, CsTeam team)
@@ -131,7 +133,12 @@ public class Tags : BasePlugin
 
     public HookResult OnSayTextPost(DynamicHook hook)
     {
-        Marshal.FreeHGlobal(stringPtr);
+        foreach (nint ptr in strPtrs)
+        {
+            Marshal.FreeHGlobal(ptr);
+        }
+
+        strPtrs.Clear();
         return HookResult.Continue;
     }
 
@@ -172,5 +179,32 @@ public class Tags : BasePlugin
 
             info.ReplyToCommand("[cs2-tags] Toggletags is true");
         }
+    }
+
+    public static void UpdateTags()
+    {
+        foreach (var kvp in PlayerTags)
+        {
+            var player = Utilities.GetPlayerFromSteamId(kvp.Key)!;
+            var tag = kvp.Value;
+
+            if (string.IsNullOrEmpty(tag.ScoreTag))
+            {
+                continue;
+            }
+
+            player.Clan = tag.ScoreTag;
+        }
+    }
+
+    public nint AllocString(string str)
+    {
+        byte[] bytes = Encoding.UTF8.GetBytes(str + "\0");
+        nint stringPtr = Marshal.AllocHGlobal(bytes.Length);
+        Marshal.Copy(bytes, 0, stringPtr, bytes.Length);
+
+        strPtrs.Add(stringPtr);
+
+        return stringPtr;
     }
 }
