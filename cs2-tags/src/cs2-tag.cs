@@ -1,86 +1,176 @@
-﻿using CounterStrikeSharp.API;
-using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Core.Capabilities;
+﻿using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Core.Attributes.Registration;
+using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Admin;
-using TagsApi;
+using CounterStrikeSharp.API.Modules.Commands;
+using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
+using CounterStrikeSharp.API.Modules.Utils;
+using System.Runtime.InteropServices;
+using System.Text;
+using static Tags.Config_Config;
 using static TagsApi.Tags;
 
 namespace Tags;
 
-public partial class Tags : BasePlugin, IPluginConfig<TagsConfig>
+public class Tags : BasePlugin
 {
-    public override string ModuleName => "Tag";
-    public override string ModuleVersion => "0.0.4";
+    public override string ModuleName => "Tags";
+    public override string ModuleVersion => "0.0.5";
     public override string ModuleAuthor => "schwarper";
 
-    public TagsConfig Config { get; set; } = new TagsConfig();
-    public Dictionary<int, Tag> PlayerTagDatas { get; set; } = [];
-    public Dictionary<int, bool> PlayerToggleTags { get; set; } = [];
-    public static Tags Instance { get; set; } = new Tags();
-    public int GlobalTick { get; set; }
-    public static HashSet<ulong> PlayerGagList { get; set; } = [];
+    public static Dictionary<ulong, Tag> PlayerTags { get; set; } = [];
+    public static Dictionary<ulong, bool> PlayerToggleTags { get; set; } = [];
+
+    public nint stringPtr = 0;
 
     public override void Load(bool hotReload)
     {
-        Capabilities.RegisterPluginCapability(ITagApi.Capability, () => new TagsAPI());
-
-        Instance = this;
-
-        Event.Load();
+        VirtualFunctions.UTIL_SayText2FilterFunc.Hook(OnSayTextPre, HookMode.Pre);
+        VirtualFunctions.UTIL_SayText2FilterFunc.Hook(OnSayTextPost, HookMode.Post);
 
         if (hotReload)
         {
-            UpdatePlayerTags();
+            Reload();
+        }
+        else
+        {
+            Config_Config.Load();
         }
     }
 
     public override void Unload(bool hotReload)
     {
-        Event.Unload();
+        VirtualFunctions.UTIL_SayText2FilterFunc.Unhook(OnSayTextPre, HookMode.Pre);
+        VirtualFunctions.UTIL_SayText2FilterFunc.Unhook(OnSayTextPost, HookMode.Post);
     }
 
-    public void OnConfigParsed(TagsConfig config)
+    [GameEventHandler]
+    public HookResult OnPlayerConnect(EventPlayerConnectFull @event, GameEventInfo info)
     {
-        Config = config;
+        CCSPlayerController? player = @event.Userid;
+
+        if (player == null)
+        {
+            return HookResult.Continue;
+        }
+
+        PlayerTags.Add(player.SteamID, GetTag(player));
+        PlayerToggleTags.Add(player.SteamID, true);
+        return HookResult.Continue;
     }
 
-    public static void UpdatePlayerTags()
+    [GameEventHandler]
+    public HookResult OnPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo info)
     {
-        Instance.PlayerTagDatas.Clear();
-        Instance.PlayerToggleTags.Clear();
+        CCSPlayerController? player = @event.Userid;
 
-        foreach (CCSPlayerController player in Utilities.GetPlayers())
+        if (player == null || !PlayerTags.ContainsKey(player.SteamID))
         {
-            Instance.PlayerTagDatas.Add(player.Slot, GetTag(player));
-            Instance.PlayerToggleTags.Add(player.Slot, true);
+            return HookResult.Continue;
+        }
+
+        PlayerTags.Remove(player.SteamID);
+        PlayerToggleTags.Remove(player.SteamID);
+        return HookResult.Continue;
+    }
+
+    public HookResult OnSayTextPre(DynamicHook hook)
+    {
+        CCSPlayerController player = hook.GetParam<CCSPlayerController>(1);
+
+        if (!PlayerTags.TryGetValue(player.SteamID, out Tag? playerTag) || playerTag == null)
+        {
+            return HookResult.Continue;
+        }
+
+        string msgT = hook.GetParam<string>(3);
+        string playername = hook.GetParam<string>(4);
+        string message = hook.GetParam<string>(5);
+
+        bool isTeamMessage = !msgT.Contains("All");
+
+        string deadname = player.PawnIsAlive ? string.Empty : Config.Settings.DeadName;
+        string teamname = isTeamMessage ? TeamName(player.Team) : string.Empty;
+        string tag = playerTag.ChatTag;
+        string namecolor = playerTag.NameColor;
+        string chatcolor = playerTag.ChatColor;
+
+        string formattedMessage = FormatMessage(deadname, teamname, tag, namecolor, chatcolor, playername, message, player.Team);
+        byte[] bytes = Encoding.UTF8.GetBytes(formattedMessage + "\0");
+        stringPtr = Marshal.AllocHGlobal(bytes.Length);
+        Marshal.Copy(bytes, 0, stringPtr, bytes.Length);
+
+        hook.SetParam(3, stringPtr);
+        return HookResult.Changed;
+
+        static string ReplaceTags(string message, CsTeam team)
+        {
+            string modifiedValue = StringExtensions.ReplaceColorTags(message)
+                .Replace("{TeamColor}", ChatColors.ForTeam(team).ToString());
+
+            return modifiedValue;
+        }
+
+        static string TeamName(CsTeam team)
+        {
+            return team switch
+            {
+                CsTeam.Spectator => ReplaceTags(Config.Settings.SpecName, CsTeam.Spectator),
+                CsTeam.Terrorist => ReplaceTags(Config.Settings.TName, CsTeam.Terrorist),
+                CsTeam.CounterTerrorist => ReplaceTags(Config.Settings.CTName, CsTeam.CounterTerrorist),
+                CsTeam.None => ReplaceTags(Config.Settings.NoneName, CsTeam.None),
+                _ => ReplaceTags(Config.Settings.NoneName, CsTeam.None)
+            };
+        }
+
+        static string FormatMessage(string deadIcon, string teamname, string tag, string namecolor, string chatcolor, string playername, string message, CsTeam team)
+        {
+            return ReplaceTags($" {deadIcon}{teamname}{tag}{namecolor}{playername}{ChatColors.Default}: {chatcolor}{message}", team);
         }
     }
 
-    public static Tag GetTag(CCSPlayerController player)
+    public HookResult OnSayTextPost(DynamicHook hook)
     {
-        Dictionary<string, Tag> tags = Instance.Config.Tags;
+        Marshal.FreeHGlobal(stringPtr);
+        return HookResult.Continue;
+    }
 
-        Tag steamidTag = tags.FirstOrDefault(tag => tag.Key == player.SteamID.ToString()).Value;
+    [ConsoleCommand("css_tags_reload")]
+    [RequiresPermissions("@css/root")]
+    public void Command_Tags_Reload(CCSPlayerController? player, CommandInfo info)
+    {
+        Reload();
+        info.ReplyToCommand("[cs2-tags] Tags are reloaded.");
+    }
 
-        if (steamidTag != null)
+    [ConsoleCommand("css_toggletags")]
+    [RequiresPermissions("@css/admin")]
+    [CommandHelper(whoCanExecute: CommandUsage.CLIENT_ONLY)]
+    public void Command_Toggletags(CCSPlayerController? player, CommandInfo info)
+    {
+        if (player == null)
         {
-            return steamidTag;
+            return;
         }
 
-        Tag groupTag = tags.FirstOrDefault(tag => tag.Key.StartsWith('#') && AdminManager.PlayerInGroup(player, tag.Key)).Value;
-
-        if (groupTag != null)
+        if (!PlayerToggleTags.TryGetValue(player.SteamID, out bool value))
         {
-            return groupTag;
+            return;
         }
 
-        Tag permissionTag = tags.FirstOrDefault(tag => tag.Key.StartsWith('@') && AdminManager.PlayerHasPermissions(player, tag.Key)).Value;
-
-        if (permissionTag != null)
+        if (value)
         {
-            return permissionTag;
-        }
+            PlayerTags[player.SteamID] = Config.DefaultTags;
+            PlayerToggleTags[player.SteamID] = false;
 
-        return tags.FirstOrDefault(tag => tag.Key == "default").Value ?? new Tag();
+            info.ReplyToCommand("[cs2-tags] Toggletags is false");
+        }
+        else
+        {
+            PlayerTags[player.SteamID] = GetTag(player);
+            PlayerToggleTags[player.SteamID] = true;
+
+            info.ReplyToCommand("[cs2-tags] Toggletags is true");
+        }
     }
 }
