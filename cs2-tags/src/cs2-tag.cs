@@ -1,10 +1,13 @@
-﻿using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API;
+using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
 using CounterStrikeSharp.API.Modules.Utils;
+using System.Runtime.InteropServices;
+using System.Text;
 using static Tags.Config_Config;
 using static TagsApi.Tags;
 
@@ -19,9 +22,12 @@ public class Tags : BasePlugin
     public static Dictionary<ulong, Tag> PlayerTags { get; set; } = [];
     public static Dictionary<ulong, bool> PlayerToggleTags { get; set; } = [];
 
+    public nint stringPtr = 0;
+
     public override void Load(bool hotReload)
     {
-        VirtualFunctions.UTIL_SayText2FilterFunc.Hook(OnSayText2, HookMode.Pre);
+        VirtualFunctions.UTIL_SayText2FilterFunc.Hook(OnSayTextPre, HookMode.Pre);
+        VirtualFunctions.UTIL_SayText2FilterFunc.Hook(OnSayTextPost, HookMode.Post);
 
         if (hotReload)
         {
@@ -35,7 +41,8 @@ public class Tags : BasePlugin
 
     public override void Unload(bool hotReload)
     {
-        VirtualFunctions.UTIL_SayText2FilterFunc.Unhook(OnSayText2, HookMode.Pre);
+        VirtualFunctions.UTIL_SayText2FilterFunc.Unhook(OnSayTextPre, HookMode.Pre);
+        VirtualFunctions.UTIL_SayText2FilterFunc.Unhook(OnSayTextPost, HookMode.Post);
     }
 
     [GameEventHandler]
@@ -68,7 +75,7 @@ public class Tags : BasePlugin
         return HookResult.Continue;
     }
 
-    public HookResult OnSayText2(DynamicHook hook)
+    public HookResult OnSayTextPre(DynamicHook hook)
     {
         CCSPlayerController player = hook.GetParam<CCSPlayerController>(1);
 
@@ -90,9 +97,11 @@ public class Tags : BasePlugin
         string chatcolor = playerTag.ChatColor;
 
         string formattedMessage = FormatMessage(deadname, teamname, tag, namecolor, chatcolor, playername, message, player.Team);
+        byte[] bytes = Encoding.UTF8.GetBytes(formattedMessage + "\0");
+        stringPtr = Marshal.AllocHGlobal(bytes.Length);
+        Marshal.Copy(bytes, 0, stringPtr, bytes.Length);
 
-        hook.SetParam(3, formattedMessage);
-
+        hook.SetParam(3, stringPtr);
         return HookResult.Changed;
 
         static string ReplaceTags(string message, CsTeam team)
@@ -119,6 +128,12 @@ public class Tags : BasePlugin
         {
             return ReplaceTags($" {deadIcon}{teamname}{tag}{namecolor}{playername}{ChatColors.Default}: {chatcolor}{message}", team);
         }
+    }
+
+    public HookResult OnSayTextPost(DynamicHook hook)
+    {
+        Marshal.FreeHGlobal(stringPtr);
+        return HookResult.Continue;
     }
 
     [ConsoleCommand("css_tags_reload")]
