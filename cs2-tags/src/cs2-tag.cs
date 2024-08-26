@@ -1,18 +1,14 @@
+using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Commands;
-using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
+using CounterStrikeSharp.API.Modules.Timers;
+using CounterStrikeSharp.API.Modules.UserMessages;
 using CounterStrikeSharp.API.Modules.Utils;
-using System.Runtime.InteropServices;
-using System.Text;
 using static Tags.Config_Config;
 using static TagsApi.Tags;
-using static CounterStrikeSharp.API.Core.Listeners;
-using CounterStrikeSharp.API;
-using CounterStrikeSharp.API.Modules.Entities;
-using CounterStrikeSharp.API.Modules.Timers;
 
 namespace Tags;
 
@@ -25,12 +21,9 @@ public class Tags : BasePlugin
     public static Dictionary<ulong, Tag> PlayerTags { get; set; } = [];
     public static Dictionary<ulong, bool> PlayerToggleTags { get; set; } = [];
 
-    public List<nint> strPtrs = [];
-
     public override void Load(bool hotReload)
     {
-        VirtualFunctions.UTIL_SayText2FilterFunc.Hook(OnSayTextPre, HookMode.Pre);
-        VirtualFunctions.UTIL_SayText2FilterFunc.Hook(OnSayTextPost, HookMode.Post);
+        HookUserMessage(118, OnMessage, HookMode.Pre);
 
         AddTimer(5.0f, UpdateTags, TimerFlags.REPEAT);
 
@@ -42,12 +35,6 @@ public class Tags : BasePlugin
         {
             Config_Config.Load();
         }
-    }
-
-    public override void Unload(bool hotReload)
-    {
-        VirtualFunctions.UTIL_SayText2FilterFunc.Unhook(OnSayTextPre, HookMode.Pre);
-        VirtualFunctions.UTIL_SayText2FilterFunc.Unhook(OnSayTextPost, HookMode.Post);
     }
 
     [GameEventHandler]
@@ -80,18 +67,30 @@ public class Tags : BasePlugin
         return HookResult.Continue;
     }
 
-    public HookResult OnSayTextPre(DynamicHook hook)
+    public HookResult OnMessage(UserMessage um)
     {
-        CCSPlayerController player = hook.GetParam<CCSPlayerController>(1);
+        int entityIndex = um.ReadInt("entityindex");
+
+        CCSPlayerController? player = Utilities.GetPlayerFromIndex(entityIndex);
+
+        if (player == null)
+        {
+            return HookResult.Continue;
+        }
 
         if (!PlayerTags.TryGetValue(player.SteamID, out Tag? playerTag) || playerTag == null)
         {
             return HookResult.Continue;
         }
 
-        string msgT = hook.GetParam<string>(3);
-        string playername = hook.GetParam<string>(4);
-        string message = hook.GetParam<string>(5);
+        if (!PlayerToggleTags[player.SteamID])
+        {
+            playerTag = Config.DefaultTags;
+        }
+
+        string msgT = um.ReadString("messagename");
+        string playername = um.ReadString("param1");
+        string message = um.ReadString("param2");
 
         bool isTeamMessage = !msgT.Contains("All");
 
@@ -102,7 +101,7 @@ public class Tags : BasePlugin
         string chatcolor = playerTag.ChatColor;
 
         string formattedMessage = FormatMessage(deadname, teamname, tag, namecolor, chatcolor, playername, message, player.Team);
-        hook.SetParam(3, AllocString(formattedMessage));
+        um.SetString("messagename", formattedMessage);
         return HookResult.Changed;
 
         static string ReplaceTags(string message, CsTeam team)
@@ -131,17 +130,6 @@ public class Tags : BasePlugin
         }
     }
 
-    public HookResult OnSayTextPost(DynamicHook hook)
-    {
-        foreach (nint ptr in strPtrs)
-        {
-            Marshal.FreeHGlobal(ptr);
-        }
-
-        strPtrs.Clear();
-        return HookResult.Continue;
-    }
-
     [ConsoleCommand("css_tags_reload")]
     [RequiresPermissions("@css/root")]
     public void Command_Tags_Reload(CCSPlayerController? player, CommandInfo info)
@@ -167,14 +155,12 @@ public class Tags : BasePlugin
 
         if (value)
         {
-            PlayerTags[player.SteamID] = Config.DefaultTags;
             PlayerToggleTags[player.SteamID] = false;
 
             info.ReplyToCommand("[cs2-tags] Toggletags is false");
         }
         else
         {
-            PlayerTags[player.SteamID] = GetTag(player);
             PlayerToggleTags[player.SteamID] = true;
 
             info.ReplyToCommand("[cs2-tags] Toggletags is true");
@@ -183,10 +169,10 @@ public class Tags : BasePlugin
 
     public static void UpdateTags()
     {
-        foreach (var kvp in PlayerTags)
+        foreach (KeyValuePair<ulong, Tag> kvp in PlayerTags)
         {
-            var player = Utilities.GetPlayerFromSteamId(kvp.Key)!;
-            var tag = kvp.Value;
+            CCSPlayerController player = Utilities.GetPlayerFromSteamId(kvp.Key)!;
+            Tag tag = kvp.Value;
 
             if (string.IsNullOrEmpty(tag.ScoreTag))
             {
@@ -195,16 +181,5 @@ public class Tags : BasePlugin
 
             player.Clan = tag.ScoreTag;
         }
-    }
-
-    public nint AllocString(string str)
-    {
-        byte[] bytes = Encoding.UTF8.GetBytes(str + "\0");
-        nint stringPtr = Marshal.AllocHGlobal(bytes.Length);
-        Marshal.Copy(bytes, 0, stringPtr, bytes.Length);
-
-        strPtrs.Add(stringPtr);
-
-        return stringPtr;
     }
 }
