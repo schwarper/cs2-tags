@@ -26,8 +26,7 @@ public static class Config_Config
         Config.Settings = new();
         Config.DefaultTags = new();
         Config.Tags.Clear();
-        PlayerTags.Clear();
-        PlayerToggleTags.Clear();
+        PlayerDataList.Clear();
 
         Load();
 
@@ -35,8 +34,11 @@ public static class Config_Config
 
         foreach (CCSPlayerController player in players)
         {
-            PlayerTags.Add(player.SteamID, GetTag(player));
-            PlayerToggleTags.Add(player.SteamID, true);
+            PlayerDataList.Add(player.SteamID, new PlayerData
+            {
+                PlayerTag = GetTag(player),
+                ToggleTags = true
+            });
         }
     }
 
@@ -44,7 +46,7 @@ public static class Config_Config
     {
         Dictionary<string, Tag> tags = Config.Tags;
 
-        Tag steamidTag = tags.FirstOrDefault(tag => tag.Key == player.SteamID.ToString()).Value;
+        Tag steamidTag = tags.SingleOrDefault(tag => tag.Key == player.SteamID.ToString()).Value;
 
         if (steamidTag != null)
         {

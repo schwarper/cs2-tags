@@ -15,11 +15,16 @@ namespace Tags;
 public class Tags : BasePlugin
 {
     public override string ModuleName => "Tags";
-    public override string ModuleVersion => "0.0.5";
+    public override string ModuleVersion => "0.0.6";
     public override string ModuleAuthor => "schwarper";
 
-    public static Dictionary<ulong, Tag> PlayerTags { get; set; } = [];
-    public static Dictionary<ulong, bool> PlayerToggleTags { get; set; } = [];
+    public class PlayerData
+    {
+        public Tag PlayerTag { get; set; } = null!;
+        public bool ToggleTags { get; set; }
+    }
+
+    public static Dictionary<ulong, PlayerData> PlayerDataList { get; set; } = [];
 
     public override void Load(bool hotReload)
     {
@@ -47,8 +52,12 @@ public class Tags : BasePlugin
             return HookResult.Continue;
         }
 
-        PlayerTags.Add(player.SteamID, GetTag(player));
-        PlayerToggleTags.Add(player.SteamID, true);
+        PlayerDataList.Add(player.SteamID, new PlayerData
+        {
+            PlayerTag = GetTag(player),
+            ToggleTags = true
+        });
+
         return HookResult.Continue;
     }
 
@@ -57,13 +66,12 @@ public class Tags : BasePlugin
     {
         CCSPlayerController? player = @event.Userid;
 
-        if (player == null || !PlayerTags.ContainsKey(player.SteamID))
+        if (player == null)
         {
             return HookResult.Continue;
         }
 
-        PlayerTags.Remove(player.SteamID);
-        PlayerToggleTags.Remove(player.SteamID);
+        PlayerDataList.Remove(player.SteamID);
         return HookResult.Continue;
     }
 
@@ -78,14 +86,14 @@ public class Tags : BasePlugin
             return HookResult.Continue;
         }
 
-        if (!PlayerTags.TryGetValue(player.SteamID, out Tag? playerTag) || playerTag == null)
+        if (!PlayerDataList.TryGetValue(player.SteamID, out var playerData))
         {
             return HookResult.Continue;
         }
 
-        if (!PlayerToggleTags[player.SteamID])
+        if (!playerData.ToggleTags)
         {
-            playerTag = Config.DefaultTags;
+            playerData.PlayerTag = Config.DefaultTags;
         }
 
         string msgT = um.ReadString("messagename");
@@ -96,9 +104,9 @@ public class Tags : BasePlugin
 
         string deadname = player.PawnIsAlive ? string.Empty : Config.Settings.DeadName;
         string teamname = isTeamMessage ? TeamName(player.Team) : string.Empty;
-        string tag = playerTag.ChatTag;
-        string namecolor = playerTag.NameColor;
-        string chatcolor = playerTag.ChatColor;
+        string tag = playerData.PlayerTag.ChatTag;
+        string namecolor = playerData.PlayerTag.NameColor;
+        string chatcolor = playerData.PlayerTag.ChatColor;
 
         string formattedMessage = FormatMessage(deadname, teamname, tag, namecolor, chatcolor, playername, message, player.Team);
         um.SetString("messagename", formattedMessage);
@@ -148,38 +156,38 @@ public class Tags : BasePlugin
             return;
         }
 
-        if (!PlayerToggleTags.TryGetValue(player.SteamID, out bool value))
+        if (!PlayerDataList.TryGetValue(player.SteamID, out var playerData))
         {
             return;
         }
 
+        var value = playerData.ToggleTags;
+
         if (value)
         {
-            PlayerToggleTags[player.SteamID] = false;
-
+            playerData.ToggleTags = false;
             info.ReplyToCommand("[cs2-tags] Toggletags is false");
         }
         else
         {
-            PlayerToggleTags[player.SteamID] = true;
-
+            playerData.ToggleTags = true;
             info.ReplyToCommand("[cs2-tags] Toggletags is true");
         }
     }
 
     public static void UpdateTags()
     {
-        foreach (KeyValuePair<ulong, Tag> kvp in PlayerTags)
+        foreach (var kvp in PlayerDataList)
         {
             CCSPlayerController player = Utilities.GetPlayerFromSteamId(kvp.Key)!;
-            Tag tag = kvp.Value;
+            var scoretag = kvp.Value.PlayerTag.ScoreTag;
 
-            if (string.IsNullOrEmpty(tag.ScoreTag))
+            if (string.IsNullOrEmpty(scoretag))
             {
                 continue;
             }
 
-            player.Clan = tag.ScoreTag;
+            player.Clan = scoretag;
         }
     }
 }
