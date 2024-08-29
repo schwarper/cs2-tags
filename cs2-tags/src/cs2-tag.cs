@@ -7,12 +7,13 @@ using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.UserMessages;
 using CounterStrikeSharp.API.Modules.Utils;
+using System.Text.RegularExpressions;
 using static Tags.Config_Config;
 using static TagsApi.Tags;
 
 namespace Tags;
 
-public class Tags : BasePlugin
+public partial class Tags : BasePlugin
 {
     public override string ModuleName => "Tags";
     public override string ModuleVersion => "0.0.6";
@@ -117,12 +118,17 @@ public class Tags : BasePlugin
 
         string formattedMessage = FormatMessage(deadname, teamname, tag, namecolor, chatcolor, playername, cleanedMessage, player.Team);
         um.SetString("messagename", formattedMessage);
+        um.SetBool("chat", playerData.PlayerTag.ChatSound);
+
         return HookResult.Changed;
     }
 
+    [GeneratedRegex(@"\{.*?\}")]
+    private static partial Regex MyRegex();
+
     private static string RemoveCurlyBraceContent(string message)
     {
-        return System.Text.RegularExpressions.Regex.Replace(message, @"\{.*?\}", string.Empty);
+        return MyRegex().Replace(message, string.Empty);
     }
 
     static string ReplaceTags(string message, CsTeam team)

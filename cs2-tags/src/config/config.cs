@@ -105,6 +105,7 @@ public static class Config_Config
         Config.DefaultTags.ChatTag = defaultTable["ChatTag"].ToString()!;
         Config.DefaultTags.ChatColor = defaultTable["ChatColor"].ToString()!;
         Config.DefaultTags.NameColor = defaultTable["NameColor"].ToString()!;
+        Config.DefaultTags.ChatSound = bool.Parse(defaultTable["ChatSound"].ToString()!);
 
         foreach (KeyValuePair<string, object> tags in model)
         {
@@ -138,6 +139,8 @@ public static class Config_Config
             {
                 Config.Tags[key].NameColor = ncolor;
             }
+
+            Config.Tags[key].ChatSound = bool.Parse(value["ChatSound"].ToString()!);
         }
     }
 

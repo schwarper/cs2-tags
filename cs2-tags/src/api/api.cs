@@ -103,6 +103,24 @@ public class TagsAPI : ITagApi
         }
     }
 
+    public bool GetPlayerChatSound(CCSPlayerController player)
+    {
+        if (PlayerDataList.TryGetValue(player.SteamID, out var playerData))
+        {
+            return playerData.PlayerTag.ChatSound;
+        }
+
+        return true;
+    }
+
+    public void SetPlayerChatSound(CCSPlayerController player, bool value)
+    {
+        if (PlayerDataList.TryGetValue(player.SteamID, out var playerData))
+        {
+            playerData.PlayerTag.ChatSound = value;
+        }
+    }
+
     public void ReloadTags()
     {
         Reload();
