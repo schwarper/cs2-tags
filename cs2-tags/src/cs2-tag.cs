@@ -47,7 +47,7 @@ public class Tags : BasePlugin
     {
         CCSPlayerController? player = @event.Userid;
 
-        if (player == null)
+        if (player == null || player.IsBot)
         {
             return HookResult.Continue;
         }
@@ -66,7 +66,7 @@ public class Tags : BasePlugin
     {
         CCSPlayerController? player = @event.Userid;
 
-        if (player == null)
+        if (player == null || player.IsBot)
         {
             return HookResult.Continue;
         }
@@ -75,7 +75,7 @@ public class Tags : BasePlugin
         return HookResult.Continue;
     }
 
-    public HookResult OnMessage(UserMessage um)
+    public static HookResult OnMessage(UserMessage um)
     {
         int entityIndex = um.ReadInt("entityindex");
 
@@ -100,6 +100,13 @@ public class Tags : BasePlugin
         string playername = um.ReadString("param1");
         string message = um.ReadString("param2");
 
+        string cleanedMessage = RemoveCurlyBraceContent(message);
+
+        if (string.IsNullOrWhiteSpace(cleanedMessage))
+        {
+            return HookResult.Handled;
+        }
+
         bool isTeamMessage = !msgT.Contains("All");
 
         string deadname = player.PawnIsAlive ? string.Empty : Config.Settings.DeadName;
@@ -108,34 +115,39 @@ public class Tags : BasePlugin
         string namecolor = playerData.PlayerTag.NameColor;
         string chatcolor = playerData.PlayerTag.ChatColor;
 
-        string formattedMessage = FormatMessage(deadname, teamname, tag, namecolor, chatcolor, playername, message, player.Team);
+        string formattedMessage = FormatMessage(deadname, teamname, tag, namecolor, chatcolor, playername, cleanedMessage, player.Team);
         um.SetString("messagename", formattedMessage);
         return HookResult.Changed;
+    }
 
-        static string ReplaceTags(string message, CsTeam team)
+    private static string RemoveCurlyBraceContent(string message)
+    {
+        return System.Text.RegularExpressions.Regex.Replace(message, @"\{.*?\}", string.Empty);
+    }
+
+    static string ReplaceTags(string message, CsTeam team)
+    {
+        string modifiedValue = StringExtensions.ReplaceColorTags(message)
+            .Replace("{TeamColor}", ChatColors.ForTeam(team).ToString());
+
+        return modifiedValue;
+    }
+
+    static string TeamName(CsTeam team)
+    {
+        return team switch
         {
-            string modifiedValue = StringExtensions.ReplaceColorTags(message)
-                .Replace("{TeamColor}", ChatColors.ForTeam(team).ToString());
+            CsTeam.Spectator => ReplaceTags(Config.Settings.SpecName, CsTeam.Spectator),
+            CsTeam.Terrorist => ReplaceTags(Config.Settings.TName, CsTeam.Terrorist),
+            CsTeam.CounterTerrorist => ReplaceTags(Config.Settings.CTName, CsTeam.CounterTerrorist),
+            CsTeam.None => ReplaceTags(Config.Settings.NoneName, CsTeam.None),
+            _ => ReplaceTags(Config.Settings.NoneName, CsTeam.None)
+        };
+    }
 
-            return modifiedValue;
-        }
-
-        static string TeamName(CsTeam team)
-        {
-            return team switch
-            {
-                CsTeam.Spectator => ReplaceTags(Config.Settings.SpecName, CsTeam.Spectator),
-                CsTeam.Terrorist => ReplaceTags(Config.Settings.TName, CsTeam.Terrorist),
-                CsTeam.CounterTerrorist => ReplaceTags(Config.Settings.CTName, CsTeam.CounterTerrorist),
-                CsTeam.None => ReplaceTags(Config.Settings.NoneName, CsTeam.None),
-                _ => ReplaceTags(Config.Settings.NoneName, CsTeam.None)
-            };
-        }
-
-        static string FormatMessage(string deadIcon, string teamname, string tag, string namecolor, string chatcolor, string playername, string message, CsTeam team)
-        {
-            return ReplaceTags($" {deadIcon}{teamname}{tag}{namecolor}{playername}{ChatColors.Default}: {chatcolor}{message}", team);
-        }
+    static string FormatMessage(string deadIcon, string teamname, string tag, string namecolor, string chatcolor, string playername, string message, CsTeam team)
+    {
+        return ReplaceTags($" {deadIcon}{teamname}{tag}{namecolor}{playername}{ChatColors.Default}: {chatcolor}{message}", team);
     }
 
     [ConsoleCommand("css_tags_reload")]
@@ -179,15 +191,25 @@ public class Tags : BasePlugin
     {
         foreach (var kvp in PlayerDataList)
         {
-            CCSPlayerController player = Utilities.GetPlayerFromSteamId(kvp.Key)!;
+            CCSPlayerController? player = Utilities.GetPlayerFromSteamId(kvp.Key);
+
+            if (player == null)
+            {
+                continue;
+            }
+
             var scoretag = kvp.Value.PlayerTag.ScoreTag;
 
-            if (string.IsNullOrEmpty(scoretag))
+            if (string.IsNullOrEmpty(scoretag) || player.Clan == scoretag)
             {
                 continue;
             }
 
             player.Clan = scoretag;
+            Utilities.SetStateChanged(player, "CCSPlayerController", "m_szClan");
+
+            var fakeEvent = new EventNextlevelChanged(false);
+            fakeEvent.FireEventToClient(player);
         }
     }
 }

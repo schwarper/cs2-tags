@@ -23,17 +23,24 @@ public static class Config_Config
 
     public static void Reload()
     {
-        Config.Settings = new();
-        Config.DefaultTags = new();
         Config.Tags.Clear();
         PlayerDataList.Clear();
 
         Load();
+        LoadPlayersTag();
+    }
 
+    public static void LoadPlayersTag()
+    {
         List<CCSPlayerController> players = Utilities.GetPlayers();
 
         foreach (CCSPlayerController player in players)
         {
+            if (player.IsBot)
+            {
+                continue;
+            }
+
             PlayerDataList.Add(player.SteamID, new PlayerData
             {
                 PlayerTag = GetTag(player),
