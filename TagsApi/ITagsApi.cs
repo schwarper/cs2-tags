@@ -1,5 +1,6 @@
 ﻿using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Capabilities;
+using CounterStrikeSharp.API.Modules.UserMessages;
 using static TagsApi.Tags;
 
 namespace TagsApi;
@@ -7,6 +8,7 @@ namespace TagsApi;
 public interface ITagApi
 {
     public static readonly PluginCapability<ITagApi?> Capability = new("tags:api");
+    public event Action<UserMessage>? OnPlayerChatPre;
     public string GetPlayerTag(CCSPlayerController player, Tags_Tags tag);
     public void SetPlayerTag(CCSPlayerController player, Tags_Tags tag, string newtag);
     public void ResetPlayerTag(CCSPlayerController player, Tags_Tags tag);

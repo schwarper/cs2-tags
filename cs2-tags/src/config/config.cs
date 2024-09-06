@@ -1,6 +1,5 @@
 ﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Modules.Admin;
 using System.Reflection;
 using Tomlyn;
 using Tomlyn.Model;
@@ -43,44 +42,10 @@ public static class Config_Config
 
             PlayerDataList.Add(player.SteamID, new PlayerData
             {
-                PlayerTag = GetTag(player),
+                PlayerTag = player.GetTag(),
                 ToggleTags = true
             });
         }
-    }
-
-    public static Tag GetTag(CCSPlayerController player)
-    {
-        Dictionary<string, Tag> tags = Config.Tags;
-
-        Tag steamidTag = tags.SingleOrDefault(tag => tag.Key == player.SteamID.ToString()).Value;
-
-        if (steamidTag != null)
-        {
-            return steamidTag;
-        }
-
-        foreach (KeyValuePair<string, Tag> tag in tags.Where(tag => tag.Key.StartsWith('#')))
-        {
-            bool isInGroup = AdminManager.PlayerInGroup(player, tag.Key);
-
-            if (isInGroup)
-            {
-                return tag.Value;
-            }
-        }
-
-        foreach (KeyValuePair<string, Tag> tag in tags.Where(tag => tag.Key.StartsWith('@')))
-        {
-            bool hasPermission = AdminManager.PlayerHasPermissions(player, tag.Key);
-
-            if (hasPermission)
-            {
-                return tag.Value;
-            }
-        }
-
-        return Config.DefaultTags;
     }
 
     private static void LoadConfig(string configPath)

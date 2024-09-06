@@ -1,6 +1,7 @@
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
+using CounterStrikeSharp.API.Core.Capabilities;
 using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Commands;
@@ -8,6 +9,7 @@ using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.UserMessages;
 using CounterStrikeSharp.API.Modules.Utils;
 using System.Text.RegularExpressions;
+using TagsApi;
 using static Tags.Config_Config;
 using static TagsApi.Tags;
 
@@ -26,9 +28,13 @@ public partial class Tags : BasePlugin
     }
 
     public static Dictionary<ulong, PlayerData> PlayerDataList { get; set; } = [];
+    public TagsAPI Api { get; set; } = null!;
 
     public override void Load(bool hotReload)
     {
+        Api = new TagsAPI();
+        Capabilities.RegisterPluginCapability(ITagApi.Capability, () => Api);
+
         HookUserMessage(118, OnMessage, HookMode.Pre);
 
         AddTimer(5.0f, UpdateTags, TimerFlags.REPEAT);
@@ -55,7 +61,7 @@ public partial class Tags : BasePlugin
 
         PlayerDataList.Add(player.SteamID, new PlayerData
         {
-            PlayerTag = GetTag(player),
+            PlayerTag = player.GetTag(),
             ToggleTags = true
         });
 
@@ -76,7 +82,7 @@ public partial class Tags : BasePlugin
         return HookResult.Continue;
     }
 
-    public static HookResult OnMessage(UserMessage um)
+    public HookResult OnMessage(UserMessage um)
     {
         int entityIndex = um.ReadInt("entityindex");
 
@@ -87,7 +93,7 @@ public partial class Tags : BasePlugin
             return HookResult.Continue;
         }
 
-        if (!PlayerDataList.TryGetValue(player.SteamID, out var playerData))
+        if (!PlayerDataList.TryGetValue(player.SteamID, out PlayerData? playerData))
         {
             return HookResult.Continue;
         }
@@ -96,6 +102,8 @@ public partial class Tags : BasePlugin
         {
             playerData.PlayerTag = Config.DefaultTags;
         }
+
+        Api.PlayerChat(um);
 
         string msgT = um.ReadString("messagename");
         string playername = um.ReadString("param1");
@@ -131,7 +139,7 @@ public partial class Tags : BasePlugin
         return MyRegex().Replace(message, string.Empty);
     }
 
-    static string ReplaceTags(string message, CsTeam team)
+    private static string ReplaceTags(string message, CsTeam team)
     {
         string modifiedValue = StringExtensions.ReplaceColorTags(message)
             .Replace("{TeamColor}", ChatColors.ForTeam(team).ToString());
@@ -139,7 +147,7 @@ public partial class Tags : BasePlugin
         return modifiedValue;
     }
 
-    static string TeamName(CsTeam team)
+    private static string TeamName(CsTeam team)
     {
         return team switch
         {
@@ -151,7 +159,7 @@ public partial class Tags : BasePlugin
         };
     }
 
-    static string FormatMessage(string deadIcon, string teamname, string tag, string namecolor, string chatcolor, string playername, string message, CsTeam team)
+    private static string FormatMessage(string deadIcon, string teamname, string tag, string namecolor, string chatcolor, string playername, string message, CsTeam team)
     {
         return ReplaceTags($" {deadIcon}{teamname}{tag}{namecolor}{playername}{ChatColors.Default}: {chatcolor}{message}", team);
     }
@@ -174,12 +182,12 @@ public partial class Tags : BasePlugin
             return;
         }
 
-        if (!PlayerDataList.TryGetValue(player.SteamID, out var playerData))
+        if (!PlayerDataList.TryGetValue(player.SteamID, out PlayerData? playerData))
         {
             return;
         }
 
-        var value = playerData.ToggleTags;
+        bool value = playerData.ToggleTags;
 
         if (value)
         {
@@ -195,7 +203,7 @@ public partial class Tags : BasePlugin
 
     public static void UpdateTags()
     {
-        foreach (var kvp in PlayerDataList)
+        foreach (KeyValuePair<ulong, PlayerData> kvp in PlayerDataList)
         {
             CCSPlayerController? player = Utilities.GetPlayerFromSteamId(kvp.Key);
 
@@ -204,18 +212,14 @@ public partial class Tags : BasePlugin
                 continue;
             }
 
-            var scoretag = kvp.Value.PlayerTag.ScoreTag;
+            string scoretag = kvp.Value.PlayerTag.ScoreTag;
 
             if (string.IsNullOrEmpty(scoretag) || player.Clan == scoretag)
             {
                 continue;
             }
 
-            player.Clan = scoretag;
-            Utilities.SetStateChanged(player, "CCSPlayerController", "m_szClan");
-
-            var fakeEvent = new EventNextlevelChanged(false);
-            fakeEvent.FireEventToClient(player);
+            player.SetTag(scoretag);
         }
     }
 }
