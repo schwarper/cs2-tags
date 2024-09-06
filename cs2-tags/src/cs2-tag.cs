@@ -18,7 +18,7 @@ namespace Tags;
 public partial class Tags : BasePlugin
 {
     public override string ModuleName => "Tags";
-    public override string ModuleVersion => "0.0.6";
+    public override string ModuleVersion => "0.0.7";
     public override string ModuleAuthor => "schwarper";
 
     public class PlayerData
