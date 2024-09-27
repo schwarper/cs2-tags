@@ -52,9 +52,7 @@ public partial class Tags : BasePlugin
     [GameEventHandler]
     public HookResult OnPlayerConnect(EventPlayerConnectFull @event, GameEventInfo info)
     {
-        CCSPlayerController? player = @event.Userid;
-
-        if (player == null || player.IsBot)
+        if (@event.Userid is not CCSPlayerController player || player.IsBot)
         {
             return HookResult.Continue;
         }
@@ -71,9 +69,7 @@ public partial class Tags : BasePlugin
     [GameEventHandler]
     public HookResult OnPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo info)
     {
-        CCSPlayerController? player = @event.Userid;
-
-        if (player == null || player.IsBot)
+        if (@event.Userid is not CCSPlayerController player || player.IsBot)
         {
             return HookResult.Continue;
         }
@@ -88,7 +84,7 @@ public partial class Tags : BasePlugin
 
         CCSPlayerController? player = Utilities.GetPlayerFromIndex(entityIndex);
 
-        if (player == null)
+        if (player == null || player.IsBot)
         {
             return HookResult.Continue;
         }
@@ -131,10 +127,7 @@ public partial class Tags : BasePlugin
         return HookResult.Changed;
     }
 
-    [GeneratedRegex(@"\{.*?\}|\p{C}")]
-    private static partial Regex MyRegex();
-
-
+    [GeneratedRegex(@"\{.*?\}|\p{C}")] private static partial Regex MyRegex();
     private static string RemoveCurlyBraceContent(string message)
     {
         return MyRegex().Replace(message, string.Empty);

@@ -13,9 +13,7 @@ public static class Player
     {
         Dictionary<string, Tag> tags = Config.Tags;
 
-        Tag steamidTag = tags.SingleOrDefault(tag => tag.Key == player.SteamID.ToString()).Value;
-
-        if (steamidTag != null)
+        if (tags.TryGetValue(player.SteamID.ToString(), out var steamidTag))
         {
             return steamidTag;
         }
