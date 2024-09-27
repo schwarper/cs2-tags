@@ -105,7 +105,10 @@ public static class Config_Config
                 Config.Tags[key].NameColor = ncolor;
             }
 
-            Config.Tags[key].ChatSound = bool.Parse(value["ChatSound"].ToString()!);
+            if (value.TryGetValue("ChatSound", out object? chatsound) && chatsound is bool csound)
+            {
+                Config.Tags[key].ChatSound = csound;
+            }
         }
     }
 

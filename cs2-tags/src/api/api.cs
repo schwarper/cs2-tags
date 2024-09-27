@@ -9,6 +9,7 @@ namespace Tags;
 public class TagsAPI : ITagApi
 {
     public event Action<UserMessage>? OnPlayerChatPre;
+
     public void PlayerChat(UserMessage message)
     {
         OnPlayerChatPre?.Invoke(message);
