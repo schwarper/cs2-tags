@@ -67,7 +67,7 @@ public partial class Tags : BasePlugin
             return HookResult.Continue;
         }
 
-        PlayerDataList.Remove(player.SteamID);
+        PlayerDataList.TryRemove(player.SteamID, out _);
         return HookResult.Continue;
     }
 

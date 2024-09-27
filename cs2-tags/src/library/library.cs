@@ -16,7 +16,7 @@ public static partial class TagsLibrary
 {
     public static void LoadTag(this CCSPlayerController player)
     {
-        PlayerDataList.Add(player.SteamID, new PlayerData
+        PlayerDataList.TryAdd(player.SteamID, new PlayerData
         {
             PlayerTag = player.GetTag(),
             ToggleTags = true

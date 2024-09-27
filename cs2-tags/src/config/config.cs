@@ -42,11 +42,7 @@ public static class Config_Config
                 continue;
             }
 
-            PlayerDataList.Add(player.SteamID, new PlayerData
-            {
-                PlayerTag = player.GetTag(),
-                ToggleTags = true
-            });
+            player.LoadTag();
         }
     }
 
