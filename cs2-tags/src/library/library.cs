@@ -1,14 +1,27 @@
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Admin;
+using CounterStrikeSharp.API.Modules.Utils;
+using System.Text;
+using System.Text.RegularExpressions;
+using Tomlyn.Model;
 using static Tags.Config_Config;
 using static Tags.Tags;
 using static TagsApi.Tags;
 
 namespace Tags;
 
-public static class Player
+public static partial class TagsLibrary
 {
+    public static void LoadTag(this CCSPlayerController player)
+    {
+        PlayerDataList.Add(player.SteamID, new PlayerData
+        {
+            PlayerTag = player.GetTag(),
+            ToggleTags = true
+        });
+    }
     public static Tag GetTag(this CCSPlayerController player)
     {
         Dictionary<string, Tag> tags = Config.Tags;
@@ -161,5 +174,48 @@ public static class Player
 
         EventNextlevelChanged fakeEvent = new(false);
         fakeEvent.FireEventToClient(player);
+    }
+
+    [GeneratedRegex(@"\{.*?\}|\p{C}")] public static partial Regex MyRegex();
+    public static string RemoveCurlyBraceContent(this string message)
+    {
+        return MyRegex().Replace(message, string.Empty);
+    }
+
+    public static string ReplaceTags(this string message, CsTeam team)
+    {
+        string modifiedValue = StringExtensions.ReplaceColorTags(message)
+            .Replace("{TeamColor}", ChatColors.ForTeam(team).ToString());
+
+        return modifiedValue;
+    }
+
+    public static string Name(this CsTeam team)
+    {
+        return team switch
+        {
+            CsTeam.Spectator => ReplaceTags(Config.Settings.SpecName, CsTeam.Spectator),
+            CsTeam.Terrorist => ReplaceTags(Config.Settings.TName, CsTeam.Terrorist),
+            CsTeam.CounterTerrorist => ReplaceTags(Config.Settings.CTName, CsTeam.CounterTerrorist),
+            CsTeam.None => ReplaceTags(Config.Settings.NoneName, CsTeam.None),
+            _ => ReplaceTags(Config.Settings.NoneName, CsTeam.None)
+        };
+    }
+
+    public static string FormatMessage(string deadIcon, string teamname, string tag, string namecolor, string chatcolor, string playername, string message, CsTeam team)
+    {
+        var sb = new StringBuilder();
+        sb.Append(deadIcon).Append(teamname).Append(tag).Append(namecolor).Append(playername)
+          .Append(ChatColors.Default).Append(": ").Append(chatcolor).Append(message);
+
+        return ReplaceTags(sb.ToString(), team);
+    }
+
+    public static void SetIfPresent<T>(this TomlTable table, string key, Action<T> setter)
+    {
+        if (table.TryGetValue(key, out object? value) && value is T typedValue)
+        {
+            setter(typedValue);
+        }
     }
 }

@@ -31,11 +31,13 @@ public static class Config_Config
 
     public static void LoadPlayersTag()
     {
-        List<CCSPlayerController> players = Utilities.GetPlayers();
+        const string playerdesignername = "cs_player_controller";
 
-        foreach (CCSPlayerController player in players)
+        for (int i = 0; i < Server.MaxPlayers; i++)
         {
-            if (player.IsBot)
+            CCSPlayerController? player = Utilities.GetEntityFromIndex<CCSPlayerController>(i + 1);
+
+            if (player?.DesignerName != playerdesignername || player.IsBot)
             {
                 continue;
             }
@@ -83,32 +85,15 @@ public static class Config_Config
 
             TomlTable value = (TomlTable)tags.Value;
 
-            Config.Tags.Add(key, new Tag());
+            Tag configTag = new();
 
-            if (value.TryGetValue("ScoreTag", out object? scoretag) && scoretag is string stag)
-            {
-                Config.Tags[key].ScoreTag = stag;
-            }
+            value.SetIfPresent("ScoreTag", (string stag) => configTag.ScoreTag = stag);
+            value.SetIfPresent("ChatTag", (string ctag) => configTag.ChatTag = ctag);
+            value.SetIfPresent("ChatColor", (string ccolor) => configTag.ChatColor = ccolor);
+            value.SetIfPresent("NameColor", (string ncolor) => configTag.NameColor = ncolor);
+            value.SetIfPresent("ChatSound", (bool csound) => configTag.ChatSound = csound);
 
-            if (value.TryGetValue("ChatTag", out object? chattag) && chattag is string ctag)
-            {
-                Config.Tags[key].ChatTag = ctag;
-            }
-
-            if (value.TryGetValue("ChatColor", out object? chatcolor) && chatcolor is string ccolor)
-            {
-                Config.Tags[key].ChatColor = ccolor;
-            }
-
-            if (value.TryGetValue("NameColor", out object? namecolor) && namecolor is string ncolor)
-            {
-                Config.Tags[key].NameColor = ncolor;
-            }
-
-            if (value.TryGetValue("ChatSound", out object? chatsound) && chatsound is bool csound)
-            {
-                Config.Tags[key].ChatSound = csound;
-            }
+            Config.Tags.Add(key, configTag);
         }
     }
 

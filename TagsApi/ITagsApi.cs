@@ -7,7 +7,7 @@ namespace TagsApi;
 
 public interface ITagApi
 {
-    public static readonly PluginCapability<ITagApi?> Capability = new("tags:api");
+    public static readonly PluginCapability<ITagApi> Capability = new("tags:api");
 
     public event Action<UserMessage>? OnPlayerChatPre;
     public string GetPlayerTag(CCSPlayerController player, Tags_Tags tag);

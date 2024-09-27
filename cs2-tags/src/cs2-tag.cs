@@ -2,13 +2,11 @@ using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Core.Capabilities;
-using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.UserMessages;
-using CounterStrikeSharp.API.Modules.Utils;
-using System.Text.RegularExpressions;
+using System.Collections.Concurrent;
 using TagsApi;
 using static Tags.Config_Config;
 using static TagsApi.Tags;
@@ -27,7 +25,7 @@ public partial class Tags : BasePlugin
         public bool ToggleTags { get; set; }
     }
 
-    public static Dictionary<ulong, PlayerData> PlayerDataList { get; set; } = [];
+    public static ConcurrentDictionary<ulong, PlayerData> PlayerDataList { get; set; } = [];
     public TagsAPI Api { get; set; } = null!;
 
     public override void Load(bool hotReload)
@@ -57,12 +55,7 @@ public partial class Tags : BasePlugin
             return HookResult.Continue;
         }
 
-        PlayerDataList.Add(player.SteamID, new PlayerData
-        {
-            PlayerTag = player.GetTag(),
-            ToggleTags = true
-        });
-
+        player.LoadTag();
         return HookResult.Continue;
     }
 
@@ -105,7 +98,7 @@ public partial class Tags : BasePlugin
         string playername = um.ReadString("param1");
         string message = um.ReadString("param2");
 
-        string cleanedMessage = RemoveCurlyBraceContent(message);
+        string cleanedMessage = message.RemoveCurlyBraceContent();
 
         if (string.IsNullOrWhiteSpace(cleanedMessage))
         {
@@ -115,47 +108,16 @@ public partial class Tags : BasePlugin
         bool isTeamMessage = !msgT.Contains("All");
 
         string deadname = player.PawnIsAlive ? string.Empty : Config.Settings.DeadName;
-        string teamname = isTeamMessage ? TeamName(player.Team) : string.Empty;
+        string teamname = isTeamMessage ? player.Team.Name() : string.Empty;
         string tag = playerData.PlayerTag.ChatTag;
         string namecolor = playerData.PlayerTag.NameColor;
         string chatcolor = playerData.PlayerTag.ChatColor;
 
-        string formattedMessage = FormatMessage(deadname, teamname, tag, namecolor, chatcolor, playername, cleanedMessage, player.Team);
+        string formattedMessage = TagsLibrary.FormatMessage(deadname, teamname, tag, namecolor, chatcolor, playername, cleanedMessage, player.Team);
         um.SetString("messagename", formattedMessage);
         um.SetBool("chat", playerData.PlayerTag.ChatSound);
 
         return HookResult.Changed;
-    }
-
-    [GeneratedRegex(@"\{.*?\}|\p{C}")] private static partial Regex MyRegex();
-    private static string RemoveCurlyBraceContent(string message)
-    {
-        return MyRegex().Replace(message, string.Empty);
-    }
-
-    private static string ReplaceTags(string message, CsTeam team)
-    {
-        string modifiedValue = StringExtensions.ReplaceColorTags(message)
-            .Replace("{TeamColor}", ChatColors.ForTeam(team).ToString());
-
-        return modifiedValue;
-    }
-
-    private static string TeamName(CsTeam team)
-    {
-        return team switch
-        {
-            CsTeam.Spectator => ReplaceTags(Config.Settings.SpecName, CsTeam.Spectator),
-            CsTeam.Terrorist => ReplaceTags(Config.Settings.TName, CsTeam.Terrorist),
-            CsTeam.CounterTerrorist => ReplaceTags(Config.Settings.CTName, CsTeam.CounterTerrorist),
-            CsTeam.None => ReplaceTags(Config.Settings.NoneName, CsTeam.None),
-            _ => ReplaceTags(Config.Settings.NoneName, CsTeam.None)
-        };
-    }
-
-    private static string FormatMessage(string deadIcon, string teamname, string tag, string namecolor, string chatcolor, string playername, string message, CsTeam team)
-    {
-        return ReplaceTags($" {deadIcon}{teamname}{tag}{namecolor}{playername}{ChatColors.Default}: {chatcolor}{message}", team);
     }
 
     [ConsoleCommand("css_tags_reload")]
@@ -206,14 +168,13 @@ public partial class Tags : BasePlugin
                 continue;
             }
 
-            string scoretag = kvp.Value.PlayerTag.ScoreTag;
+            string scoretag = kvp.Value.ToggleTags ? Config.DefaultTags.ScoreTag :
+                kvp.Value.PlayerTag.ScoreTag;
 
-            if (string.IsNullOrEmpty(scoretag) || player.Clan == scoretag)
+            if (!string.IsNullOrEmpty(scoretag) && player.Clan != scoretag)
             {
-                continue;
+                player.SetTag(scoretag);
             }
-
-            player.SetTag(scoretag);
         }
     }
 }
