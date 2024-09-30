@@ -16,11 +16,7 @@ public static partial class TagsLibrary
 {
     public static void LoadTag(this CCSPlayerController player)
     {
-        PlayerDataList.TryAdd(player.SteamID, new PlayerData
-        {
-            PlayerTag = player.GetTag(),
-            ToggleTags = true
-        });
+        PlayerTagsList.TryAdd(player.SteamID, player.GetTag());
     }
     public static Tag GetTag(this CCSPlayerController player)
     {
@@ -56,12 +52,12 @@ public static partial class TagsLibrary
 
     public static string GetTag(this CCSPlayerController player, Tags_Tags tag)
     {
-        if (PlayerDataList.TryGetValue(player.SteamID, out PlayerData? playerData))
+        if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
         {
             return tag switch
             {
-                Tags_Tags.ScoreTag => playerData.PlayerTag.ScoreTag,
-                Tags_Tags.ChatTag => playerData.PlayerTag.ChatTag,
+                Tags_Tags.ScoreTag => playerData.ScoreTag,
+                Tags_Tags.ChatTag => playerData.ChatTag,
                 _ => string.Empty
             };
         }
@@ -70,15 +66,15 @@ public static partial class TagsLibrary
 
     public static void SetTag(this CCSPlayerController player, Tags_Tags tag, string newtag)
     {
-        if (PlayerDataList.TryGetValue(player.SteamID, out PlayerData? playerData))
+        if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
         {
             switch (tag)
             {
                 case Tags_Tags.ScoreTag:
-                    playerData.PlayerTag.ScoreTag = newtag;
+                    playerData.ScoreTag = newtag;
                     break;
                 case Tags_Tags.ChatTag:
-                    playerData.PlayerTag.ChatTag = newtag;
+                    playerData.ChatTag = newtag;
                     break;
             }
         }
@@ -86,16 +82,16 @@ public static partial class TagsLibrary
 
     public static void ResetTag(this CCSPlayerController player, Tags_Tags tag)
     {
-        if (PlayerDataList.TryGetValue(player.SteamID, out PlayerData? playerData))
+        if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
         {
             Tag defaultTag = GetTag(player);
             switch (tag)
             {
                 case Tags_Tags.ScoreTag:
-                    playerData.PlayerTag.ScoreTag = defaultTag.ScoreTag;
+                    playerData.ScoreTag = defaultTag.ScoreTag;
                     break;
                 case Tags_Tags.ChatTag:
-                    playerData.PlayerTag.ChatTag = defaultTag.ChatTag;
+                    playerData.ChatTag = defaultTag.ChatTag;
                     break;
             }
         }
@@ -103,12 +99,12 @@ public static partial class TagsLibrary
 
     public static string GetColor(this CCSPlayerController player, Tags_Colors color)
     {
-        if (PlayerDataList.TryGetValue(player.SteamID, out PlayerData? playerData))
+        if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
         {
             return color switch
             {
-                Tags_Colors.NameColor => playerData.PlayerTag.NameColor,
-                Tags_Colors.ChatColor => playerData.PlayerTag.ChatColor,
+                Tags_Colors.NameColor => playerData.NameColor,
+                Tags_Colors.ChatColor => playerData.ChatColor,
                 _ => string.Empty
             };
         }
@@ -118,15 +114,15 @@ public static partial class TagsLibrary
 
     public static void SetColor(this CCSPlayerController player, Tags_Colors color, string newcolor)
     {
-        if (PlayerDataList.TryGetValue(player.SteamID, out PlayerData? playerData))
+        if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
         {
             switch (color)
             {
                 case Tags_Colors.NameColor:
-                    playerData.PlayerTag.NameColor = newcolor;
+                    playerData.NameColor = newcolor;
                     break;
                 case Tags_Colors.ChatColor:
-                    playerData.PlayerTag.ChatColor = newcolor;
+                    playerData.ChatColor = newcolor;
                     break;
             }
         }
@@ -134,16 +130,16 @@ public static partial class TagsLibrary
 
     public static void ResetColor(this CCSPlayerController player, Tags_Colors color)
     {
-        if (PlayerDataList.TryGetValue(player.SteamID, out PlayerData? playerData))
+        if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
         {
             Tag defaultTag = GetTag(player);
             switch (color)
             {
                 case Tags_Colors.NameColor:
-                    playerData.PlayerTag.NameColor = defaultTag.NameColor;
+                    playerData.NameColor = defaultTag.NameColor;
                     break;
                 case Tags_Colors.ChatColor:
-                    playerData.PlayerTag.ChatColor = defaultTag.ChatColor;
+                    playerData.ChatColor = defaultTag.ChatColor;
                     break;
             }
         }
@@ -151,9 +147,9 @@ public static partial class TagsLibrary
 
     public static bool GetChatSound(this CCSPlayerController player)
     {
-        if (PlayerDataList.TryGetValue(player.SteamID, out PlayerData? playerData))
+        if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
         {
-            return playerData.PlayerTag.ChatSound;
+            return playerData.ChatSound;
         }
 
         return true;
@@ -161,9 +157,25 @@ public static partial class TagsLibrary
 
     public static void SetChatSound(this CCSPlayerController player, bool value)
     {
-        if (PlayerDataList.TryGetValue(player.SteamID, out PlayerData? playerData))
+        if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
         {
-            playerData.PlayerTag.ChatSound = value;
+            playerData.ChatSound = value;
+        }
+    }
+
+    public static bool GetToggleTags(this CCSPlayerController player) => PlayerToggleTagsList.Contains(player.SteamID);
+
+    public static void SetToggleTags(this CCSPlayerController player, bool value)
+    {
+        var steamid = player.SteamID;
+
+        if (value)
+        {
+            PlayerToggleTagsList.Add(steamid);
+        }
+        else
+        {
+            PlayerToggleTagsList.Remove(steamid);
         }
     }
 
@@ -217,5 +229,26 @@ public static partial class TagsLibrary
         {
             setter(typedValue);
         }
+    }
+
+    public static HashSet<CCSPlayerController> GetPlayers()
+    {
+        HashSet<CCSPlayerController> players = [];
+
+        const string playerdesignername = "cs_player_controller";
+
+        for (int i = 0; i < Server.MaxPlayers; i++)
+        {
+            CCSPlayerController? player = Utilities.GetEntityFromIndex<CCSPlayerController>(i + 1);
+
+            if (player?.DesignerName != playerdesignername || player.IsBot)
+            {
+                continue;
+            }
+
+            players.Add(player);
+        }
+
+        return players;
     }
 }

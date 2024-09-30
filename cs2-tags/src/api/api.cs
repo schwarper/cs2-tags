@@ -18,7 +18,6 @@ public class TagsAPI : ITagApi
     {
         return player.GetTag(tag);
     }
-
     public void SetPlayerTag(CCSPlayerController player, Tags_Tags tag, string newtag)
     {
         player.SetTag(tag, newtag);
@@ -46,6 +45,14 @@ public class TagsAPI : ITagApi
     public void SetPlayerChatSound(CCSPlayerController player, bool value)
     {
         player.SetChatSound(value);
+    }
+    public bool GetPlayerToggleTags(CCSPlayerController player)
+    {
+        return player.GetToggleTags();
+    }
+    public void SetPlayerToggleTags(CCSPlayerController player, bool value)
+    {
+        player.SetToggleTags(value);
     }
     public void ReloadTags()
     {

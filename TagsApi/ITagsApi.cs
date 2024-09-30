@@ -18,5 +18,7 @@ public interface ITagApi
     public void ResetPlayerColor(CCSPlayerController player, Tags_Colors color);
     public bool GetPlayerChatSound(CCSPlayerController player);
     public void SetPlayerChatSound(CCSPlayerController controller, bool value);
+    public bool GetPlayerToggleTags(CCSPlayerController player);
+    public void SetPlayerToggleTags(CCSPlayerController player, bool value);
     public void ReloadTags();
 }

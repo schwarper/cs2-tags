@@ -1,4 +1,4 @@
-using CounterStrikeSharp.API;
+﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Core.Capabilities;
@@ -9,6 +9,7 @@ using CounterStrikeSharp.API.Modules.UserMessages;
 using System.Collections.Concurrent;
 using TagsApi;
 using static Tags.Config_Config;
+using static Tags.TagsLibrary;
 using static TagsApi.Tags;
 
 namespace Tags;
@@ -16,16 +17,11 @@ namespace Tags;
 public partial class Tags : BasePlugin
 {
     public override string ModuleName => "Tags";
-    public override string ModuleVersion => "0.0.8";
+    public override string ModuleVersion => "0.0.9";
     public override string ModuleAuthor => "schwarper";
 
-    public class PlayerData
-    {
-        public Tag PlayerTag { get; set; } = null!;
-        public bool ToggleTags { get; set; }
-    }
-
-    public static ConcurrentDictionary<ulong, PlayerData> PlayerDataList { get; set; } = [];
+    public static ConcurrentDictionary<ulong, Tag> PlayerTagsList { get; set; } = [];
+    public static HashSet<ulong> PlayerToggleTagsList { get; set; } = [];
     public TagsAPI Api { get; set; } = null!;
 
     public override void Load(bool hotReload)
@@ -67,7 +63,9 @@ public partial class Tags : BasePlugin
             return HookResult.Continue;
         }
 
-        PlayerDataList.TryRemove(player.SteamID, out _);
+        var steamid = player.SteamID;
+        PlayerTagsList.TryRemove(steamid, out _);
+        PlayerToggleTagsList.Remove(steamid);
         return HookResult.Continue;
     }
 
@@ -75,21 +73,21 @@ public partial class Tags : BasePlugin
     {
         int entityIndex = um.ReadInt("entityindex");
 
-        CCSPlayerController? player = Utilities.GetPlayerFromIndex(entityIndex);
-
-        if (player == null || player.IsBot)
+        if (Utilities.GetPlayerFromIndex(entityIndex) is not CCSPlayerController player || player.IsBot)
         {
             return HookResult.Continue;
         }
 
-        if (!PlayerDataList.TryGetValue(player.SteamID, out PlayerData? playerData))
-        {
-            return HookResult.Continue;
-        }
+        var steamid = player.SteamID;
+        Tag playerData;
 
-        if (!playerData.ToggleTags)
+        if (PlayerToggleTagsList.Contains(steamid))
         {
-            playerData.PlayerTag = Config.DefaultTags;
+            playerData = Config.DefaultTags;
+        }
+        else
+        {
+            playerData = PlayerTagsList[steamid];
         }
 
         Api.PlayerChat(um);
@@ -109,13 +107,13 @@ public partial class Tags : BasePlugin
 
         string deadname = player.PawnIsAlive ? string.Empty : Config.Settings.DeadName;
         string teamname = isTeamMessage ? player.Team.Name() : string.Empty;
-        string tag = playerData.PlayerTag.ChatTag;
-        string namecolor = playerData.PlayerTag.NameColor;
-        string chatcolor = playerData.PlayerTag.ChatColor;
+        string tag = playerData.ChatTag;
+        string namecolor = playerData.NameColor;
+        string chatcolor = playerData.ChatColor;
 
         string formattedMessage = TagsLibrary.FormatMessage(deadname, teamname, tag, namecolor, chatcolor, playername, cleanedMessage, player.Team);
         um.SetString("messagename", formattedMessage);
-        um.SetBool("chat", playerData.PlayerTag.ChatSound);
+        um.SetBool("chat", playerData.ChatSound);
 
         return HookResult.Changed;
     }
@@ -138,40 +136,42 @@ public partial class Tags : BasePlugin
             return;
         }
 
-        if (!PlayerDataList.TryGetValue(player.SteamID, out PlayerData? playerData))
-        {
-            return;
-        }
-
-        bool value = playerData.ToggleTags;
+        bool value = PlayerToggleTagsList.Add(player.SteamID);
 
         if (value)
         {
-            playerData.ToggleTags = false;
-            info.ReplyToCommand("[cs2-tags] Toggletags is false");
+            info.ReplyToCommand("[cs2-tags] Tags are now hidden.");
         }
         else
         {
-            playerData.ToggleTags = true;
-            info.ReplyToCommand("[cs2-tags] Toggletags is true");
+            PlayerToggleTagsList.Remove(player.SteamID);
+            info.ReplyToCommand("[cs2-tags] Tags are now visible.");
         }
     }
 
     public static void UpdateTags()
     {
-        foreach (KeyValuePair<ulong, PlayerData> kvp in PlayerDataList)
-        {
-            CCSPlayerController? player = Utilities.GetPlayerFromSteamId(kvp.Key);
+        var players = GetPlayers();
 
-            if (player == null)
+        foreach ((ulong steamid, Tag tag) in PlayerTagsList)
+        {
+            if (players.FirstOrDefault(p => p.SteamID == steamid) is not CCSPlayerController player)
             {
                 continue;
             }
 
-            string scoretag = kvp.Value.ToggleTags ? Config.DefaultTags.ScoreTag :
-                kvp.Value.PlayerTag.ScoreTag;
+            string scoretag;
 
-            if (!string.IsNullOrEmpty(scoretag) && player.Clan != scoretag)
+            if (PlayerToggleTagsList.Contains(steamid))
+            {
+                scoretag = Config.DefaultTags.ScoreTag;
+            }
+            else
+            {
+                scoretag = tag.ScoreTag;
+            }
+
+            if (player.Clan != scoretag)
             {
                 player.SetTag(scoretag);
             }
