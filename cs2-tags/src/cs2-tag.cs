@@ -17,7 +17,7 @@ namespace Tags;
 public partial class Tags : BasePlugin
 {
     public override string ModuleName => "Tags";
-    public override string ModuleVersion => "0.0.9";
+    public override string ModuleVersion => "1.0";
     public override string ModuleAuthor => "schwarper";
 
     public static ConcurrentDictionary<ulong, Tag> PlayerTagsList { get; set; } = [];
@@ -29,9 +29,11 @@ public partial class Tags : BasePlugin
         Api = new TagsAPI();
         Capabilities.RegisterPluginCapability(ITagApi.Capability, () => Api);
 
+        AddCommandListener("css_admins_reload", AdminsReload, HookMode.Pre);
+
         HookUserMessage(118, OnMessage, HookMode.Pre);
 
-        AddTimer(5.0f, UpdateTags, TimerFlags.REPEAT);
+        AddTimer(10.0f, UpdateTags, TimerFlags.REPEAT);
 
         if (hotReload)
         {
@@ -41,6 +43,17 @@ public partial class Tags : BasePlugin
         {
             Config_Config.Load();
         }
+    }
+
+    public override void Unload(bool hotReload)
+    {
+        RemoveCommandListener("css_admins_reload", AdminsReload, HookMode.Pre);
+    }
+
+    public static HookResult AdminsReload(CCSPlayerController? player, CommandInfo info)
+    {
+        Reload();
+        return HookResult.Continue;
     }
 
     [GameEventHandler]
@@ -155,7 +168,7 @@ public partial class Tags : BasePlugin
 
         foreach ((ulong steamid, Tag tag) in PlayerTagsList)
         {
-            if (players.FirstOrDefault(p => p.SteamID == steamid) is not CCSPlayerController player)
+            if (players.SingleOrDefault(p => p.SteamID == steamid) is not CCSPlayerController player)
             {
                 continue;
             }

@@ -4,6 +4,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+	  <OutputPath>$(ProjectDir)..\BuildOutput\plugins\cs2-tags\</OutputPath>
+	<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,4 +16,20 @@
 	<ItemGroup>
 		<ProjectReference Include="..\TagsApi\TagsApi.csproj" />
 	</ItemGroup>
+
+	<Target Name="ExcludeTagsApiFiles" AfterTargets="Build">
+		<Delete Files="$(OutputPath)TagsApi.dll" />
+		<Delete Files="$(OutputPath)TagsApi.pdb" />
+	</Target>
+
+	<Target Name="CopyConfigFiles" AfterTargets="Build">
+		<ItemGroup>
+			<FilesToCopy Include="$(ProjectDir)..\config.toml" />
+		</ItemGroup>
+		<Copy SourceFiles="@(FilesToCopy)" DestinationFolder="$(ProjectDir)..\BuildOutput\configs\plugins\cs2-tags\" />
+	</Target>
+
+	<Target Name="CopyNuGetAssemblies" AfterTargets="Build">
+		<Copy SourceFiles="../Tomlyn.dll" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+	</Target>
 </Project>

@@ -16,7 +16,8 @@ public static partial class TagsLibrary
 {
     public static void LoadTag(this CCSPlayerController player)
     {
-        PlayerTagsList.TryAdd(player.SteamID, player.GetTag());
+        var tag = player.GetTag().Clone();
+        PlayerTagsList.TryAdd(player.SteamID, tag);
     }
     public static Tag GetTag(this CCSPlayerController player)
     {
@@ -27,21 +28,17 @@ public static partial class TagsLibrary
             return steamidTag;
         }
 
-        foreach (KeyValuePair<string, Tag> tag in tags.Where(tag => tag.Key.StartsWith('#')))
+        foreach (var tag in tags)
         {
-            bool isInGroup = AdminManager.PlayerInGroup(player, tag.Key);
-
-            if (isInGroup)
+            if (tag.Key[0] == '#' && AdminManager.PlayerInGroup(player, tag.Key))
             {
                 return tag.Value;
             }
         }
 
-        foreach (KeyValuePair<string, Tag> tag in tags.Where(tag => tag.Key.StartsWith('@')))
+        foreach (var tag in tags)
         {
-            bool hasPermission = AdminManager.PlayerHasPermissions(player, tag.Key);
-
-            if (hasPermission)
+            if (tag.Key[0] == '@' && AdminManager.PlayerHasPermissions(player, tag.Key))
             {
                 return tag.Value;
             }
@@ -84,7 +81,7 @@ public static partial class TagsLibrary
     {
         if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
         {
-            Tag defaultTag = GetTag(player);
+            Tag defaultTag = GetTag(player).Clone();
             switch (tag)
             {
                 case Tags_Tags.ScoreTag:
@@ -132,7 +129,7 @@ public static partial class TagsLibrary
     {
         if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
         {
-            Tag defaultTag = GetTag(player);
+            Tag defaultTag = GetTag(player).Clone();
             switch (color)
             {
                 case Tags_Colors.NameColor:

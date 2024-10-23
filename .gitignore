@@ -1,3 +1,6 @@
 .vs/
 **/obj
 **/bin
+
+# Ignore everything in BuildOutput directory
+BuildOutput/

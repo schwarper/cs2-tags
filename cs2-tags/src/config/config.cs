@@ -27,31 +27,26 @@ public static class Config_Config
     }
 
     public static Cfg Config { get; set; } = new Cfg();
-    private static string? ConfigPath;
+    private static readonly string ConfigPath;
 
-    public static void Load()
+    static Config_Config()
     {
-        if (ConfigPath == null)
+        string assemblyName = Assembly.GetExecutingAssembly().GetName().Name ?? string.Empty;
+
+        ConfigPath = Path.Combine(Server.GameDirectory,
+            "csgo",
+            "addons",
+            "counterstrikesharp",
+            "configs",
+            "plugins",
+            assemblyName,
+            "config.toml"
+        );
+
+        if (!File.Exists(ConfigPath))
         {
-            string assemblyName = Assembly.GetExecutingAssembly().GetName().Name ?? string.Empty;
-
-            ConfigPath = Path.Combine(Server.GameDirectory,
-                "csgo",
-                "addons",
-                "counterstrikesharp",
-                "configs",
-                "plugins",
-                assemblyName,
-                "config.toml"
-            );
-
-            if (!File.Exists(ConfigPath))
-            {
-                throw new FileNotFoundException($"Configuration file not found: {ConfigPath}");
-            }
+            throw new FileNotFoundException($"Configuration file not found: {ConfigPath}");
         }
-
-        LoadConfig(ConfigPath);
     }
 
     public static void Reload()
@@ -73,9 +68,9 @@ public static class Config_Config
         }
     }
 
-    private static void LoadConfig(string configPath)
+    public static void Load()
     {
-        string configText = File.ReadAllText(configPath);
+        string configText = File.ReadAllText(ConfigPath);
         TomlTable model = Toml.ToModel(configText);
 
         TomlTable table = (TomlTable)model["Settings"];
