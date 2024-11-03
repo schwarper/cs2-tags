@@ -1,4 +1,7 @@
 ﻿using CounterStrikeSharp.API;
+using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Core.Translations;
+using CounterStrikeSharp.API.Modules.Utils;
 using System.Reflection;
 using Tomlyn;
 using Tomlyn.Model;
@@ -12,11 +15,9 @@ public static class Config_Config
 {
     public class Settings
     {
+        public string Tag { get; set; } = string.Empty;
         public string DeadName { get; set; } = string.Empty;
-        public string NoneName { get; set; } = string.Empty;
-        public string SpecName { get; set; } = string.Empty;
-        public string TName { get; set; } = string.Empty;
-        public string CTName { get; set; } = string.Empty;
+        public Dictionary<CsTeam, string> TeamNames { get; set; } = [];
     }
 
     public class Cfg
@@ -26,7 +27,7 @@ public static class Config_Config
         public Dictionary<string, Tag> Tags { get; set; } = [];
     }
 
-    public static Cfg Config { get; set; } = new Cfg();
+    public static Cfg Config { get; set; } = new();
     private static readonly string ConfigPath;
 
     static Config_Config()
@@ -42,11 +43,6 @@ public static class Config_Config
             assemblyName,
             "config.toml"
         );
-
-        if (!File.Exists(ConfigPath))
-        {
-            throw new FileNotFoundException($"Configuration file not found: {ConfigPath}");
-        }
     }
 
     public static void Reload()
@@ -60,9 +56,14 @@ public static class Config_Config
 
     public static void LoadPlayersTag()
     {
-        var players = GetPlayers();
+        GetPlayers(out HashSet<CCSPlayerController> players);
 
-        foreach (var player in players)
+        if (players.Count == 0)
+        {
+            return;
+        }
+
+        foreach (CCSPlayerController player in players)
         {
             player.LoadTag();
         }
@@ -70,15 +71,22 @@ public static class Config_Config
 
     public static void Load()
     {
+        if (!File.Exists(ConfigPath))
+        {
+            throw new FileNotFoundException($"Configuration file not found: {ConfigPath}");
+        }
+
         string configText = File.ReadAllText(ConfigPath);
         TomlTable model = Toml.ToModel(configText);
 
         TomlTable table = (TomlTable)model["Settings"];
+        Config.Settings.Tag = table["Tag"].ToString()!.ReplaceColorTags();
+
         Config.Settings.DeadName = table["DeadName"].ToString()!;
-        Config.Settings.NoneName = table["NoneName"].ToString()!;
-        Config.Settings.SpecName = table["SpecName"].ToString()!;
-        Config.Settings.TName = table["TName"].ToString()!;
-        Config.Settings.CTName = table["CTName"].ToString()!;
+        Config.Settings.TeamNames[CsTeam.None] = TagsLibrary.ReplaceTags(table["NoneName"]?.ToString()!, CsTeam.None);
+        Config.Settings.TeamNames[CsTeam.Spectator] = TagsLibrary.ReplaceTags(table["SpecName"]?.ToString()!, CsTeam.Spectator);
+        Config.Settings.TeamNames[CsTeam.Terrorist] = TagsLibrary.ReplaceTags(table["TName"]?.ToString()!, CsTeam.Terrorist);
+        Config.Settings.TeamNames[CsTeam.CounterTerrorist] = TagsLibrary.ReplaceTags(table["CTName"]?.ToString()!, CsTeam.CounterTerrorist);
 
         table = (TomlTable)model["Default"];
         Config.DefaultTags.ScoreTag = table["ScoreTag"].ToString()!;

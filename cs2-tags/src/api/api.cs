@@ -1,5 +1,4 @@
 ﻿using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Modules.UserMessages;
 using TagsApi;
 using static Tags.Config_Config;
 using static TagsApi.Tags;
@@ -8,11 +7,31 @@ namespace Tags;
 
 public class TagsAPI : ITagApi
 {
-    public event Action<UserMessage>? OnPlayerChatPre;
+    public event Func<string, string, bool, bool, HookResult>? OnMessageProcessPre;
+    public event Func<string, string, bool, bool, HookResult>? OnMessageProcess;
+    public event Action<string, string, bool, bool>? OnMessageProcessPost;
+    public event Action<CCSPlayerController, Tag>? OnTagsUpdatedPre;
+    public event Action<CCSPlayerController, Tag>? OnTagsUpdatedPost;
 
-    public void PlayerChat(UserMessage message)
+    public HookResult MessageProcessPre(string playername, string message, bool chatsound, bool teammessage)
     {
-        OnPlayerChatPre?.Invoke(message);
+        return OnMessageProcessPre?.Invoke(playername, message, chatsound, teammessage) ?? HookResult.Continue;
+    }
+    public HookResult MessageProcess(string playername, string message, bool chatsound, bool teammessage)
+    {
+        return OnMessageProcess?.Invoke(playername, message, chatsound, teammessage) ?? HookResult.Continue;
+    }
+    public void MessageProcessPost(string playername, string message, bool chatsound, bool teammessage)
+    {
+        OnMessageProcessPost?.Invoke(playername, message, chatsound, teammessage);
+    }
+    public void TagsUpdatedPre(CCSPlayerController player, Tag tag)
+    {
+        OnTagsUpdatedPre?.Invoke(player, tag);
+    }
+    public void TagsUpdatedPost(CCSPlayerController player, Tag tag)
+    {
+        OnTagsUpdatedPost?.Invoke(player, tag);
     }
     public string GetPlayerTag(CCSPlayerController player, Tags_Tags tag)
     {

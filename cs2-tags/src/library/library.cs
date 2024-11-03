@@ -14,21 +14,27 @@ namespace Tags;
 
 public static partial class TagsLibrary
 {
+    private const string playerdesignername = "cs_player_controller";
+    [GeneratedRegex(@"\{.*?\}|\p{C}")] public static partial Regex MyRegex();
+
     public static void LoadTag(this CCSPlayerController player)
     {
-        var tag = player.GetTag().Clone();
-        PlayerTagsList.TryAdd(player.SteamID, tag);
+        Tag tag = player.GetTag().Clone();
+        Tags.Api.TagsUpdatedPre(player, tag);
+        PlayerTagsList.Add(player, tag);
+        player.SetTag(tag.ScoreTag);
+        Tags.Api.TagsUpdatedPost(player, tag);
     }
     public static Tag GetTag(this CCSPlayerController player)
     {
         Dictionary<string, Tag> tags = Config.Tags;
 
-        if (tags.TryGetValue(player.SteamID.ToString(), out var steamidTag))
+        if (tags.TryGetValue(player.SteamID.ToString(), out Tag? steamidTag))
         {
             return steamidTag;
         }
 
-        foreach (var tag in tags)
+        foreach (KeyValuePair<string, Tag> tag in tags)
         {
             if (tag.Key[0] == '#' && AdminManager.PlayerInGroup(player, tag.Key))
             {
@@ -36,7 +42,7 @@ public static partial class TagsLibrary
             }
         }
 
-        foreach (var tag in tags)
+        foreach (KeyValuePair<string, Tag> tag in tags)
         {
             if (tag.Key[0] == '@' && AdminManager.PlayerHasPermissions(player, tag.Key))
             {
@@ -49,7 +55,7 @@ public static partial class TagsLibrary
 
     public static string GetTag(this CCSPlayerController player, Tags_Tags tag)
     {
-        if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        if (PlayerTagsList.TryGetValue(player, out Tag? playerData))
         {
             return tag switch
             {
@@ -63,12 +69,13 @@ public static partial class TagsLibrary
 
     public static void SetTag(this CCSPlayerController player, Tags_Tags tag, string newtag)
     {
-        if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        if (PlayerTagsList.TryGetValue(player, out Tag? playerData))
         {
             switch (tag)
             {
                 case Tags_Tags.ScoreTag:
                     playerData.ScoreTag = newtag;
+                    player.SetTag(newtag);
                     break;
                 case Tags_Tags.ChatTag:
                     playerData.ChatTag = newtag;
@@ -79,13 +86,14 @@ public static partial class TagsLibrary
 
     public static void ResetTag(this CCSPlayerController player, Tags_Tags tag)
     {
-        if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        if (PlayerTagsList.TryGetValue(player, out Tag? playerData))
         {
             Tag defaultTag = GetTag(player).Clone();
             switch (tag)
             {
                 case Tags_Tags.ScoreTag:
                     playerData.ScoreTag = defaultTag.ScoreTag;
+                    player.SetTag(defaultTag.ScoreTag);
                     break;
                 case Tags_Tags.ChatTag:
                     playerData.ChatTag = defaultTag.ChatTag;
@@ -96,7 +104,7 @@ public static partial class TagsLibrary
 
     public static string GetColor(this CCSPlayerController player, Tags_Colors color)
     {
-        if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        if (PlayerTagsList.TryGetValue(player, out Tag? playerData))
         {
             return color switch
             {
@@ -111,7 +119,7 @@ public static partial class TagsLibrary
 
     public static void SetColor(this CCSPlayerController player, Tags_Colors color, string newcolor)
     {
-        if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        if (PlayerTagsList.TryGetValue(player, out Tag? playerData))
         {
             switch (color)
             {
@@ -127,7 +135,7 @@ public static partial class TagsLibrary
 
     public static void ResetColor(this CCSPlayerController player, Tags_Colors color)
     {
-        if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        if (PlayerTagsList.TryGetValue(player, out Tag? playerData))
         {
             Tag defaultTag = GetTag(player).Clone();
             switch (color)
@@ -144,7 +152,7 @@ public static partial class TagsLibrary
 
     public static bool GetChatSound(this CCSPlayerController player)
     {
-        if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        if (PlayerTagsList.TryGetValue(player, out Tag? playerData))
         {
             return playerData.ChatSound;
         }
@@ -154,30 +162,35 @@ public static partial class TagsLibrary
 
     public static void SetChatSound(this CCSPlayerController player, bool value)
     {
-        if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        if (PlayerTagsList.TryGetValue(player, out Tag? playerData))
         {
             playerData.ChatSound = value;
         }
     }
 
-    public static bool GetToggleTags(this CCSPlayerController player) => PlayerToggleTagsList.Contains(player.SteamID);
+    public static bool GetToggleTags(this CCSPlayerController player) => PlayerToggleTagsList.Contains(player);
 
     public static void SetToggleTags(this CCSPlayerController player, bool value)
     {
-        var steamid = player.SteamID;
-
         if (value)
         {
-            PlayerToggleTagsList.Add(steamid);
+            PlayerToggleTagsList.Add(player);
+            player.SetTag(Config.DefaultTags.ScoreTag);
         }
         else
         {
-            PlayerToggleTagsList.Remove(steamid);
+            PlayerToggleTagsList.Remove(player);
+            player.SetTag(player.GetTag(Tags_Tags.ScoreTag));
         }
     }
 
     public static void SetTag(this CCSPlayerController player, string tag)
     {
+        if (player.Clan == tag)
+        {
+            return;
+        }
+
         player.Clan = tag;
         Utilities.SetStateChanged(player, "CCSPlayerController", "m_szClan");
 
@@ -185,37 +198,23 @@ public static partial class TagsLibrary
         fakeEvent.FireEventToClient(player);
     }
 
-    [GeneratedRegex(@"\{.*?\}|\p{C}")] public static partial Regex MyRegex();
-    public static string RemoveCurlyBraceContent(this string message)
-    {
-        return MyRegex().Replace(message, string.Empty);
-    }
+    public static string RemoveCurlyBraceContent(this string message) =>
+        MyRegex().Replace(message, string.Empty);
 
-    public static string ReplaceTags(this string message, CsTeam team)
-    {
-        string modifiedValue = StringExtensions.ReplaceColorTags(message)
+    public static string ReplaceTags(this string message, CsTeam team) =>
+        StringExtensions.ReplaceColorTags(message)
             .Replace("{TeamColor}", ChatColors.ForTeam(team).ToString());
 
-        return modifiedValue;
-    }
+    public static string Name(this CsTeam team) => Config.Settings.TeamNames[team];
 
-    public static string Name(this CsTeam team)
+    public static string FormatMessage(CsTeam team, params string[] args)
     {
-        return team switch
+        StringBuilder sb = new(args.Sum(arg => arg.Length));
+
+        foreach (string arg in args)
         {
-            CsTeam.Spectator => ReplaceTags(Config.Settings.SpecName, CsTeam.Spectator),
-            CsTeam.Terrorist => ReplaceTags(Config.Settings.TName, CsTeam.Terrorist),
-            CsTeam.CounterTerrorist => ReplaceTags(Config.Settings.CTName, CsTeam.CounterTerrorist),
-            CsTeam.None => ReplaceTags(Config.Settings.NoneName, CsTeam.None),
-            _ => ReplaceTags(Config.Settings.NoneName, CsTeam.None)
-        };
-    }
-
-    public static string FormatMessage(string deadIcon, string teamname, string tag, string namecolor, string chatcolor, string playername, string message, CsTeam team)
-    {
-        var sb = new StringBuilder();
-        sb.Append(deadIcon).Append(teamname).Append(tag).Append(namecolor).Append(playername)
-          .Append(ChatColors.Default).Append(": ").Append(chatcolor).Append(message);
+            sb.Append(arg);
+        }
 
         return ReplaceTags(sb.ToString(), team);
     }
@@ -228,11 +227,9 @@ public static partial class TagsLibrary
         }
     }
 
-    public static HashSet<CCSPlayerController> GetPlayers()
+    public static void GetPlayers(out HashSet<CCSPlayerController> players)
     {
-        HashSet<CCSPlayerController> players = [];
-
-        const string playerdesignername = "cs_player_controller";
+        players = [];
 
         for (int i = 0; i < Server.MaxPlayers; i++)
         {
@@ -245,7 +242,5 @@ public static partial class TagsLibrary
 
             players.Add(player);
         }
-
-        return players;
     }
 }
