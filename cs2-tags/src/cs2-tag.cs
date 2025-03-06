@@ -60,7 +60,7 @@ public partial class Tags : BasePlugin
         bool chatsound = um.ReadBool("chat");
         bool teammessage = !um.ReadString("messagename").Contains("All");
 
-        HookResult result = Api.MessageProcessPre(playername, message, chatsound, teammessage);
+        HookResult result = Api.MessageProcessPre(player, playername, message, chatsound, teammessage);
 
         if (result >= HookResult.Handled)
         {
@@ -76,7 +76,7 @@ public partial class Tags : BasePlugin
         playername = FormatMessage(team, deadname, teamname, playerData.ChatTag, playerData.NameColor, playername);
         message = FormatMessage(team, playerData.ChatColor, cleanedMessage);
 
-        result = Api.MessageProcess(playername, message, chatsound, teammessage);
+        result = Api.MessageProcess(player, playername, message, chatsound, teammessage);
 
         if (result >= HookResult.Handled)
         {
@@ -86,7 +86,7 @@ public partial class Tags : BasePlugin
         um.SetString("messagename", $"{playername}{ChatColors.White}: {message}");
         um.SetBool("chat", playerData.ChatSound);
 
-        Api.MessageProcessPost(playername, message, chatsound, teammessage);
+        Api.MessageProcessPost(player, playername, message, chatsound, teammessage);
 
         return HookResult.Changed;
     }

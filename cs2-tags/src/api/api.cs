@@ -7,23 +7,23 @@ namespace Tags;
 
 public class TagsAPI : ITagApi
 {
-    public event Func<string, string, bool, bool, HookResult>? OnMessageProcessPre;
-    public event Func<string, string, bool, bool, HookResult>? OnMessageProcess;
-    public event Action<string, string, bool, bool>? OnMessageProcessPost;
+    public event Func<CCSPlayerController, string, string, bool, bool, HookResult>? OnMessageProcessPre;
+    public event Func<CCSPlayerController, string, string, bool, bool, HookResult>? OnMessageProcess;
+    public event Action<CCSPlayerController, string, string, bool, bool>? OnMessageProcessPost;
     public event Action<CCSPlayerController, Tag>? OnTagsUpdatedPre;
     public event Action<CCSPlayerController, Tag>? OnTagsUpdatedPost;
 
-    public HookResult MessageProcessPre(string playername, string message, bool chatsound, bool teammessage)
+    public HookResult MessageProcessPre(CCSPlayerController player, string playername, string message, bool chatsound, bool teammessage)
     {
-        return OnMessageProcessPre?.Invoke(playername, message, chatsound, teammessage) ?? HookResult.Continue;
+        return OnMessageProcessPre?.Invoke(player, playername, message, chatsound, teammessage) ?? HookResult.Continue;
     }
-    public HookResult MessageProcess(string playername, string message, bool chatsound, bool teammessage)
+    public HookResult MessageProcess(CCSPlayerController player, string playername, string message, bool chatsound, bool teammessage)
     {
-        return OnMessageProcess?.Invoke(playername, message, chatsound, teammessage) ?? HookResult.Continue;
+        return OnMessageProcess?.Invoke(player, playername, message, chatsound, teammessage) ?? HookResult.Continue;
     }
-    public void MessageProcessPost(string playername, string message, bool chatsound, bool teammessage)
+    public void MessageProcessPost(CCSPlayerController player, string playername, string message, bool chatsound, bool teammessage)
     {
-        OnMessageProcessPost?.Invoke(playername, message, chatsound, teammessage);
+        OnMessageProcessPost?.Invoke(player, playername, message, chatsound, teammessage);
     }
     public void TagsUpdatedPre(CCSPlayerController player, Tag tag)
     {

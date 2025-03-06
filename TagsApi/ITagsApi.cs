@@ -8,9 +8,9 @@ public interface ITagApi
 {
     public static readonly PluginCapability<ITagApi> Capability = new("tags:api");
 
-    public event Func<string, string, bool, bool, HookResult>? OnMessageProcessPre;
-    public event Func<string, string, bool, bool, HookResult>? OnMessageProcess;
-    public event Action<string, string, bool, bool>? OnMessageProcessPost;
+    public event Func<CCSPlayerController, string, string, bool, bool, HookResult>? OnMessageProcessPre;
+    public event Func<CCSPlayerController, string, string, bool, bool, HookResult>? OnMessageProcess;
+    public event Action<CCSPlayerController, string, string, bool, bool>? OnMessageProcessPost;
     public event Action<CCSPlayerController, Tag>? OnTagsUpdatedPre;
     public event Action<CCSPlayerController, Tag>? OnTagsUpdatedPost;
 
