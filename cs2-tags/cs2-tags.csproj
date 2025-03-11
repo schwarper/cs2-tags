@@ -10,11 +10,14 @@
 
   <ItemGroup>
     <PackageReference Include="CounterStrikeSharp.API" Version="1.0.266" />
+    <PackageReference Include="Dapper" Version="2.1.66" />
+    <PackageReference Include="MySqlConnector" Version="2.4.0" />
     <PackageReference Include="Tomlyn" Version="0.17.0" />
   </ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\TagsApi\TagsApi.csproj" />
+		<None Update="lang\**\*.*" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 
 	<Target Name="ExcludeTagsApiFiles" AfterTargets="Build">
@@ -24,12 +27,14 @@
 
 	<Target Name="CopyConfigFiles" AfterTargets="Build">
 		<ItemGroup>
-			<FilesToCopy Include="$(ProjectDir)..\config.toml" />
+			<FilesToCopy Include="$(ProjectDir)..\config-example.toml" />
 		</ItemGroup>
 		<Copy SourceFiles="@(FilesToCopy)" DestinationFolder="$(ProjectDir)..\BuildOutput\configs\plugins\cs2-tags\" />
 	</Target>
 
 	<Target Name="CopyNuGetAssemblies" AfterTargets="Build">
+		<Copy SourceFiles="../MySqlConnector.dll" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+		<Copy SourceFiles="../Dapper.dll" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
 		<Copy SourceFiles="../Tomlyn.dll" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
 	</Target>
 </Project>
