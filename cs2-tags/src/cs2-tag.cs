@@ -27,8 +27,3 @@ public partial class Tags : BasePlugin
         RemoveCommandListener("css_admins_reload", Command_Admins_Reloads, HookMode.Pre);
     }
 }
-
-/*
- * Fix OnTagsUpdatePre and OnTagsUpdatePost
- * Fix css_admins_reload
- */
