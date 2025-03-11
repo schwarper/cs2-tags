@@ -6,6 +6,18 @@ SpecName = "{Purple}(SPEC)"
 TName = "{Yellow}(T)"
 CTName = "{Blue}(CT)"
 
+[DatabaseConnection]
+Host = ""
+Port = 3306
+User = ""
+Password = ""
+Name = ""
+
+[Commands]
+TagsReload = [ "css_tags_reload" ]
+Visibility = [ "css_toggletags", "css_visibility" ]
+TagsMenu = [ "css_tags" ]
+
 [Default]
 ScoreTag = ""
 ChatTag = "{Grey}[Player]"
