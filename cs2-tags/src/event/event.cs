@@ -17,12 +17,7 @@ public partial class Tags
         if (@event.Userid is not CCSPlayerController player || player.IsBot)
             return HookResult.Continue;
 
-        Task.Run(async () =>
-        {
-            CCSPlayerController playerController = player;
-            await Database.LoadPlayer(playerController);
-        });
-
+        Database.LoadPlayer(player);
         return HookResult.Continue;
     }
 
@@ -32,7 +27,7 @@ public partial class Tags
         if (@event.Userid is not CCSPlayerController player || player.IsBot)
             return HookResult.Continue;
 
-        Task.Run(() => Database.SavePlayer(player));
+        Database.SavePlayer(player);
         return HookResult.Continue;
     }
 
@@ -60,12 +55,12 @@ public partial class Tags
             return hookResult;
 
         string deadname = player.PawnIsAlive ? string.Empty : Config.Settings.DeadName;
-        string teamname = messageProcess.TeamMessage ? player.Team.Name() : string.Empty;
+        string teamcolor = messageProcess.TeamMessage ? player.Team.Name() : string.Empty;
 
         var playerData = messageProcess.Tag;
 
         CsTeam team = player.Team;
-        messageProcess.PlayerName = FormatMessage(team, deadname, teamname, playerData.ChatTag ?? string.Empty, playerData.NameColor ?? string.Empty, messageProcess.PlayerName);
+        messageProcess.PlayerName = FormatMessage(team, deadname, teamcolor, playerData.ChatTag ?? string.Empty, playerData.NameColor ?? string.Empty, messageProcess.PlayerName);
         messageProcess.Message = FormatMessage(team, playerData.ChatColor ?? string.Empty, messageProcess.Message);
 
         hookResult = Api.MessageProcess(messageProcess);

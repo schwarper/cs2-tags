@@ -50,7 +50,15 @@ public static class Database
         ");
     }
 
-    public static async Task LoadPlayer(CCSPlayerController player)
+    public static void LoadPlayer(CCSPlayerController player)
+    {
+        CSSThread.RunOnMainThread(async () =>
+        {
+            await LoadPlayerAsync(player);
+        });
+    }
+
+    public static async Task LoadPlayerAsync(CCSPlayerController player)
     {
         using MySqlConnection connection = await ConnectAsync();
 
@@ -85,7 +93,15 @@ public static class Database
         });
     }
 
-    public static async Task SavePlayer(CCSPlayerController player)
+    public static void SavePlayer(CCSPlayerController player)
+    {
+        CSSThread.RunOnMainThread(async () =>
+        {
+            await SavePlayerAsync(player);
+        });
+    }
+
+    public static async Task SavePlayerAsync(CCSPlayerController player)
     {
         Tag playerData = PlayerTagsList[player];
 

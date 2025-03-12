@@ -1,10 +1,14 @@
-using CounterStrikeSharp.API;
+﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Utils;
+using System.ComponentModel;
+using System.Drawing;
+using System.Text;
 using System.Text.RegularExpressions;
 using Tomlyn.Model;
+using static System.Net.Mime.MediaTypeNames;
 using static Tags.ConfigManager;
 using static Tags.Tags;
 using static TagsApi.Tags;
@@ -14,6 +18,30 @@ namespace Tags;
 
 public static partial class TagsLibrary
 {
+    private static readonly Dictionary<string, string> HtmlColorList = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "White", "#FFFFFF" },
+        { "DarkRed", "#8B0000" },
+        { "Green", "#008000" },
+        { "LightYellow", "#FFFFE0" },
+        { "LightBlue", "#ADD8E6" },
+        { "Olive", "#808000" },
+        { "Lime", "#00FF00" },
+        { "Red", "#FF0000" },
+        { "LightPurple", "#9370DB" },
+        { "Purple", "#800080" },
+        { "Grey", "#808080" },
+        { "Yellow", "#FFFF00" },
+        { "Gold", "#FFD700" },
+        { "Silver", "#C0C0C0" },
+        { "Blue", "#0000FF" },
+        { "DarkBlue", "#00008B" },
+        { "BlueGrey", "#7393B3" },
+        { "Magenta", "#FF00FF" },
+        { "LightRed", "#FF6347" },
+        { "Orange", "#FFA500" }
+    };
+
     [GeneratedRegex(@"\{.*?\}|\p{C}")]
     public static partial Regex MyRegex();
 
@@ -208,4 +236,59 @@ public static partial class TagsLibrary
             new EventNextlevelChanged(false).FireEventToClient(player);
         }
     }
+
+    public static string ConvertToHtml(this string message, CsTeam team)
+    {
+        var modifiedValue = message.Replace("{TeamColor}", ForTeamHtml(team));
+        var result = new StringBuilder();
+        var parts = modifiedValue.Split(['{', '}'], StringSplitOptions.None);
+
+        for (int i = 0; i < parts.Length; i++)
+        {
+            if (i % 2 == 0)
+            {
+                result.Append(parts[i]);
+            }
+            else
+            {
+                var fieldName = parts[i];
+                if (HtmlColorList.TryGetValue(fieldName, out string? value))
+                {
+                    result.Append($"<font color='{value}'>");
+
+                    if (parts.Length == 3 && string.IsNullOrEmpty(parts[0]) && string.IsNullOrEmpty(parts[2]))
+                    {
+                        result.Append(fieldName);
+                    }
+                    else
+                    {
+                        if (i + 1 < parts.Length)
+                        {
+                            result.Append(parts[i + 1]);
+                        }
+                    }
+
+                    result.Append("</font>");
+                    i++;
+                }
+                else
+                {
+                    result.Append($"{{{parts[i]}}}");
+                }
+            }
+        }
+        return result.ToString();
+    }
+
+    public static string ForTeamHtml(this CsTeam team)
+    {
+        return team switch
+        {
+            CsTeam.Spectator => "{LightPurple}",
+            CsTeam.CounterTerrorist => "{LightBlue}",
+            CsTeam.Terrorist => "{LightYellow}",
+            _ => "{White}"
+        };
+    }
+
 }

@@ -2,6 +2,7 @@
 using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Menu;
+using CounterStrikeSharp.API.Modules.Utils;
 using static Tags.ConfigManager;
 using static TagsApi.Tags;
 
@@ -41,7 +42,7 @@ public partial class Tags
         CenterHtmlMenu menu = new($"{title} {Localizer.ForPlayer(player, "Selection")}", this);
 
         string currentValue = GetTagValue(playerData, type)?.ToString() ?? string.Empty;
-        menu.AddMenuOption($"{Localizer.ForPlayer(player, "Current")} {currentValue}", (p, o) => { }, true);
+        menu.AddMenuOption($"{Localizer.ForPlayer(player, "Current")} {currentValue.ConvertToHtml(player.Team)}", (p, o) => { }, true);
 
         List<Tag> tags = player.GetTags();
         HashSet<string> tagsHash = [];
@@ -54,22 +55,30 @@ public partial class Tags
             if (!tagsHash.Add(tagValue))
                 continue;
 
+            string tagValueHtml = tagValue.ConvertToHtml(player.Team);
             bool disable = tagValue == currentValue;
-            menu.AddMenuOption(tagValue, (p, o) => SubMenuSecond(p, playerData, type, tagValue, title).Open(p), disable);
+            Console.WriteLine($"[{tagValue}] [{currentValue}] [{disable}]");
+            menu.AddMenuOption(tagValueHtml, (p, o) => SubMenuSecond(p, playerData, type, tagValue, tagValueHtml, title).Open(p), disable);
         }
 
         return menu;
     }
 
-    public CenterHtmlMenu SubMenuSecond(CCSPlayerController player, Tag playerData, TagType type, string selected, string title)
+    public CenterHtmlMenu SubMenuSecond(CCSPlayerController player, Tag playerData, TagType type, string selected, string selectedhtml, string title)
     {
         CenterHtmlMenu menu = new($"{Localizer.ForPlayer(player, "Modify")} {title}", this);
 
-        menu.AddMenuOption($"{Localizer.ForPlayer(player, "Selected")} {selected}", (p, o) => { }, true);
+        menu.AddMenuOption($"{Localizer.ForPlayer(player, "Selected")} {selectedhtml}", (p, o) => { }, true);
         menu.AddMenuOption(Localizer.ForPlayer(player, "Select"), (p, o) =>
         {
+            Console.WriteLine($"[Select] [{selected}]");
             SetPlayerTagValue(playerData, type, selected);
-            player.PrintToChat(Config.Settings.Tag + Localizer.ForPlayer(player, "Selected option", title, selected));
+
+            var value = type == TagType.NameColor || type == TagType.ChatColor ?
+                $"{selected.ReplaceTags(player.Team)}{selected.Split(['{', '}'], StringSplitOptions.None)[1]}" :
+                selected.ReplaceTags(player.Team);
+
+            player.PrintToChat(Config.Settings.Tag + Localizer.ForPlayer(player, "Selected option", title, value));
             MainMenu(p).Open(p);
         });
 

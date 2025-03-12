@@ -157,14 +157,14 @@ public static class ConfigManager
 
     public static void LoadPlayerTags()
     {
-        List<CCSPlayerController> players = Utilities.GetPlayers().Where(p => !p.IsBot).ToList();
+        List<CCSPlayerController> players = [.. Utilities.GetPlayers().Where(p => !p.IsBot)];
 
         if (players.Count == 0)
             return;
 
         foreach (CCSPlayerController player in players)
         {
-            Task.Run(() => Database.LoadPlayer(player));
+            Database.LoadPlayer(player);
         }
     }
 }
