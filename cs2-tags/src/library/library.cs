@@ -201,7 +201,7 @@ public static partial class TagsLibrary
 
     public static void SetScoreTag(this CCSPlayerController player, string? tag)
     {
-        if (!string.IsNullOrEmpty(tag) && player.Clan != tag)
+        if (tag != null && player.Clan != tag)
         {
             player.Clan = tag;
             Utilities.SetStateChanged(player, "CCSPlayerController", "m_szClan");

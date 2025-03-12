@@ -30,6 +30,7 @@ public abstract class Tags
     public class MessageProcess
     {
         public required CCSPlayerController Player { get; set; }
+        public required Tag Tag { get; set; }
         public string PlayerName { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;
         public bool ChatSound { get; set; } = true;

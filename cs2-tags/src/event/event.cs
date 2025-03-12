@@ -44,6 +44,7 @@ public partial class Tags
         MessageProcess messageProcess = new()
         {
             Player = player,
+            Tag = !player.GetVisibility() ? Config.DefaultTags.Clone() : PlayerTagsList[player].Clone(),
             Message = um.ReadString("param2").RemoveCurlyBraceContent(),
             PlayerName = um.ReadString("param1"),
             ChatSound = um.ReadBool("chat"),
@@ -58,10 +59,10 @@ public partial class Tags
         if (hookResult >= HookResult.Handled)
             return hookResult;
 
-        Tag playerData = !player.GetVisibility() ? Config.DefaultTags : PlayerTagsList[player];
-
         string deadname = player.PawnIsAlive ? string.Empty : Config.Settings.DeadName;
         string teamname = messageProcess.TeamMessage ? player.Team.Name() : string.Empty;
+
+        var playerData = messageProcess.Tag;
 
         CsTeam team = player.Team;
         messageProcess.PlayerName = FormatMessage(team, deadname, teamname, playerData.ChatTag ?? string.Empty, playerData.NameColor ?? string.Empty, messageProcess.PlayerName);
