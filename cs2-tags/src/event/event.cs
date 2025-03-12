@@ -57,7 +57,7 @@ public partial class Tags
         string deadname = player.PawnIsAlive ? string.Empty : Config.Settings.DeadName;
         string teamname = messageProcess.TeamMessage ? player.Team.Name() : string.Empty;
 
-        var playerData = messageProcess.Tag;
+        Tag playerData = messageProcess.Tag;
 
         CsTeam team = player.Team;
         messageProcess.PlayerName = FormatMessage(team, deadname, teamname, playerData.ChatTag ?? string.Empty, playerData.NameColor ?? string.Empty, messageProcess.PlayerName);

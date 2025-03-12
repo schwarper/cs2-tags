@@ -3,12 +3,9 @@ using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Utils;
-using System.ComponentModel;
-using System.Drawing;
 using System.Text;
 using System.Text.RegularExpressions;
 using Tomlyn.Model;
-using static System.Net.Mime.MediaTypeNames;
 using static Tags.ConfigManager;
 using static Tags.Tags;
 using static TagsApi.Tags;
@@ -239,9 +236,9 @@ public static partial class TagsLibrary
 
     public static string ConvertToHtml(this string message, CsTeam team)
     {
-        var modifiedValue = message.Replace("{TeamColor}", ForTeamHtml(team));
-        var result = new StringBuilder();
-        var parts = modifiedValue.Split(['{', '}'], StringSplitOptions.None);
+        string modifiedValue = message.Replace("{TeamColor}", ForTeamHtml(team));
+        StringBuilder result = new();
+        string[] parts = modifiedValue.Split(['{', '}'], StringSplitOptions.None);
 
         for (int i = 0; i < parts.Length; i++)
         {
@@ -251,7 +248,7 @@ public static partial class TagsLibrary
             }
             else
             {
-                var fieldName = parts[i];
+                string fieldName = parts[i];
                 if (HtmlColorList.TryGetValue(fieldName, out string? value))
                 {
                     result.Append($"<font color='{value}'>");

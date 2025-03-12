@@ -1,8 +1,9 @@
-﻿using CounterStrikeSharp.API.Core;
+﻿using CounterStrikeSharp.API;
+using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Admin;
+using CounterStrikeSharp.API.Modules.Entities;
 using CounterStrikeSharp.API.Modules.Menu;
-using CounterStrikeSharp.API.Modules.Utils;
 using static Tags.ConfigManager;
 using static TagsApi.Tags;
 
@@ -23,12 +24,12 @@ public partial class Tags
 
         if (AdminManager.PlayerHasPermissions(player, "@css/admin"))
         {
-            bool visibility = (bool)GetTagValue(playerData, 0)!;
+            bool visibility = playerData.Visibility;
             string visibilityText = $"{Localizer.ForPlayer(player, "Visibility")} [{(visibility ? "✔️" : "❌")}]";
 
             menu.AddMenuOption(visibilityText, (p, o) =>
             {
-                SetPlayerTagValue(playerData, 0, !visibility);
+                player.SetVisibility(!visibility);
                 player.PrintToChat(Config.Settings.Tag + Localizer.ForPlayer(player, visibility ? "Tags are now hidden" : "Tags are now visible"));
                 MainMenu(p).Open(p);
             });
@@ -57,7 +58,6 @@ public partial class Tags
 
             string tagValueHtml = tagValue.ConvertToHtml(player.Team);
             bool disable = tagValue == currentValue;
-            Console.WriteLine($"[{tagValue}] [{currentValue}] [{disable}]");
             menu.AddMenuOption(tagValueHtml, (p, o) => SubMenuSecond(p, playerData, type, tagValue, tagValueHtml, title).Open(p), disable);
         }
 
@@ -71,10 +71,9 @@ public partial class Tags
         menu.AddMenuOption($"{Localizer.ForPlayer(player, "Selected")} {selectedhtml}", (p, o) => { }, true);
         menu.AddMenuOption(Localizer.ForPlayer(player, "Select"), (p, o) =>
         {
-            Console.WriteLine($"[Select] [{selected}]");
-            SetPlayerTagValue(playerData, type, selected);
+            SetPlayerTagValue(p, playerData, type, selected);
 
-            var value = type == TagType.NameColor || type == TagType.ChatColor ?
+            string value = type == TagType.NameColor || type == TagType.ChatColor ?
                 $"{selected.ReplaceTags(player.Team)}{selected.Split(['{', '}'], StringSplitOptions.None)[1]}" :
                 selected.ReplaceTags(player.Team);
 
@@ -85,7 +84,7 @@ public partial class Tags
         return menu;
     }
 
-    private static object? GetTagValue(Tag tag, TagType type)
+    private static string? GetTagValue(Tag tag, TagType type)
     {
         return type switch
         {
@@ -93,16 +92,17 @@ public partial class Tags
             TagType.ChatTag => tag.ChatTag,
             TagType.ChatColor => tag.ChatColor,
             TagType.NameColor => tag.NameColor,
-            _ => tag.Visibility,
+            _ => null
         };
     }
 
-    private static void SetPlayerTagValue(Tag playerData, TagType type, object value)
+    private static void SetPlayerTagValue(CCSPlayerController player, Tag playerData, TagType type, object value)
     {
         switch (type)
         {
             case TagType.ScoreTag:
                 playerData.ScoreTag = (string)value;
+                player.SetScoreTag(playerData.ScoreTag);
                 break;
             case TagType.ChatTag:
                 playerData.ChatTag = (string)value;
@@ -112,9 +112,6 @@ public partial class Tags
                 break;
             case TagType.NameColor:
                 playerData.NameColor = (string)value;
-                break;
-            default:
-                playerData.Visibility = (bool)value;
                 break;
         }
     }
