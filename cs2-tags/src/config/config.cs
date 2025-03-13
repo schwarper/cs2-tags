@@ -30,6 +30,7 @@ public static class ConfigManager
 
     public class DatabaseConnection
     {
+        public bool MySQL { get; set; } = true;
         public string Host { get; set; } = string.Empty;
         public uint Port { get; set; } = 3306;
         public string User { get; set; } = string.Empty;
@@ -123,14 +124,19 @@ public static class ConfigManager
 
     private static void LoadDatabaseConnection(TomlTable table)
     {
-        Config.DatabaseConnection = new DatabaseConnection
+        Config.DatabaseConnection.MySQL = bool.Parse(table["MySQL"].ToString()!);
+
+        if (Config.DatabaseConnection.MySQL)
         {
-            Host = table["Host"].ToString()!,
-            Port = uint.Parse(table["Port"].ToString()!),
-            User = table["User"].ToString()!,
-            Password = table["Password"].ToString()!,
-            Name = table["Name"].ToString()!,
-        };
+            Config.DatabaseConnection = new DatabaseConnection
+            {
+                Host = table["Host"].ToString()!,
+                Port = uint.Parse(table["Port"].ToString()!),
+                User = table["User"].ToString()!,
+                Password = table["Password"].ToString()!,
+                Name = table["Name"].ToString()!,
+            };
+        }
 
         Database.SetConnectionString(Config.DatabaseConnection);
         Task.Run(Database.CreateDatabaseAsync);

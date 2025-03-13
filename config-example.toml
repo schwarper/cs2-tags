@@ -7,6 +7,7 @@ TName = "{Yellow}(T)"
 CTName = "{Blue}(CT)"
 
 [DatabaseConnection]
+MySQL = true
 Host = ""
 Port = 3306
 User = ""

@@ -1,18 +1,20 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
+	  <TargetFramework>net8.0</TargetFramework>
+	  <ImplicitUsings>enable</ImplicitUsings>
+	  <Nullable>enable</Nullable>
 	  <OutputPath>$(ProjectDir)..\BuildOutput\plugins\cs2-tags\</OutputPath>
-	<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+	  <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+	  <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.266" />
+    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.305" />
     <PackageReference Include="Dapper" Version="2.1.66" />
     <PackageReference Include="MySqlConnector" Version="2.4.0" />
-    <PackageReference Include="Tomlyn" Version="0.17.0" />
+	<PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.7" />
+    <PackageReference Include="Tomlyn" Version="0.19.0" />
   </ItemGroup>
 
 	<ItemGroup>
@@ -32,9 +34,17 @@
 		<Copy SourceFiles="@(FilesToCopy)" DestinationFolder="$(ProjectDir)..\BuildOutput\configs\plugins\cs2-tags\" />
 	</Target>
 
-	<Target Name="CopyNuGetAssemblies" AfterTargets="Build">
-		<Copy SourceFiles="../MySqlConnector.dll" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
-		<Copy SourceFiles="../Dapper.dll" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
-		<Copy SourceFiles="../Tomlyn.dll" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+	<Target Name="PostBuildCleanup" AfterTargets="Build">
+		<ItemGroup>
+			<FilesToDelete Include="$(ProjectDir)..\BuildOutput\plugins\cs2-tags\CounterStrikeSharp.API.dll" />
+			<FilesToDelete Include="$(ProjectDir)..\BuildOutput\plugins\cs2-tags\McMaster.NETCore.Plugins.dll" />
+			<FilesToDelete Include="$(ProjectDir)..\BuildOutput\plugins\cs2-tags\Microsoft.DotNet.PlatformAbstractions.dll" />
+			<FilesToDelete Include="$(ProjectDir)..\BuildOutput\plugins\cs2-tags\Scrutor.dll" />
+			<FilesToDelete Include="$(ProjectDir)..\BuildOutput\plugins\cs2-tags\System.Diagnostics.Eventlog.dll" />
+			<FilesToDelete Include="$(ProjectDir)..\BuildOutput\plugins\cs2-tags\Microsoft.Extensions.*.dll" />
+			<FilesToDelete Include="$(ProjectDir)..\BuildOutput\plugins\cs2-tags\Serilog*.dll" />
+		</ItemGroup>
+
+		<Delete Files="@(FilesToDelete)" />
 	</Target>
 </Project>
