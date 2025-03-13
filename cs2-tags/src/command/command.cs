@@ -1,46 +1,65 @@
 ﻿using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Commands;
-using static Tags.Config_Config;
+using static Tags.ConfigManager;
 
 namespace Tags;
 
 public partial class Tags
 {
+    public void AddCommands()
+    {
+        foreach (string command in Config.Commands.TagsReload)
+            AddCommand(command, "Tags Reload", Command_Tags_Reload);
+
+        foreach (string command in Config.Commands.Visibility)
+            AddCommand(command, "Visibility", Command_Visibility);
+
+        foreach (string command in Config.Commands.TagsMenu)
+            AddCommand(command, "Tags Menu", Command_Tags);
+
+        AddCommandListener("css_admins_reload", Command_Admins_Reloads, HookMode.Pre);
+    }
+
     public static HookResult Command_Admins_Reloads(CCSPlayerController? player, CommandInfo info)
     {
-        Reload();
+        LoadConfig(true);
         return HookResult.Continue;
     }
 
-    [ConsoleCommand("css_tags_reload")]
     [RequiresPermissions("@css/root")]
     public void Command_Tags_Reload(CCSPlayerController? player, CommandInfo info)
     {
-        Reload();
+        LoadConfig(true);
     }
 
-    [ConsoleCommand("css_toggletags")]
     [RequiresPermissions("@css/admin")]
     [CommandHelper(whoCanExecute: CommandUsage.CLIENT_ONLY)]
-    public void Command_Toggletags(CCSPlayerController? player, CommandInfo info)
+    public void Command_Visibility(CCSPlayerController? player, CommandInfo info)
     {
         if (player == null)
         {
             return;
         }
 
-        if (player.GetToggleTags())
+        if (player.GetVisibility())
         {
-            player.SetToggleTags(false);
-            info.ReplyToCommand(Config.Settings.Tag + Localizer.ForPlayer(player, "Tags are now visible"));
+            player.SetVisibility(false);
+            info.ReplyToCommand(Config.Settings.Tag + Localizer.ForPlayer(player, "Tags are now hidden"));
         }
         else
         {
-            player.SetToggleTags(true);
-            info.ReplyToCommand(Config.Settings.Tag + Localizer.ForPlayer(player, "Tags are now hidden"));
+            player.SetVisibility(true);
+            info.ReplyToCommand(Config.Settings.Tag + Localizer.ForPlayer(player, "Tags are now visible"));
         }
+    }
+
+    [CommandHelper(whoCanExecute: CommandUsage.CLIENT_ONLY)]
+    public void Command_Tags(CCSPlayerController? player, CommandInfo info)
+    {
+        if (player == null) return;
+
+        MainMenu(player).Open(player);
     }
 }

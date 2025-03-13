@@ -1,35 +1,40 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-	  <OutputPath>$(ProjectDir)..\BuildOutput\plugins\cs2-tags\</OutputPath>
-	<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.266" />
-    <PackageReference Include="Tomlyn" Version="0.17.0" />
-  </ItemGroup>
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<OutputPath>$(ProjectDir)..\BuildOutput\plugins\cs2-tags\</OutputPath>
+		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+	</PropertyGroup>
 
 	<ItemGroup>
+		<PackageReference Include="CounterStrikeSharp.API" Version="1.0.305" />
+		<PackageReference Include="Dapper" Version="2.1.66" />
+		<PackageReference Include="MySqlConnector" Version="2.4.0" />
+		<PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.7" />
+		<PackageReference Include="Tomlyn" Version="0.19.0" />
 		<ProjectReference Include="..\TagsApi\TagsApi.csproj" />
+		<None Update="lang\**\*.*" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 
-	<Target Name="ExcludeTagsApiFiles" AfterTargets="Build">
-		<Delete Files="$(OutputPath)TagsApi.dll" />
-		<Delete Files="$(OutputPath)TagsApi.pdb" />
-	</Target>
-
-	<Target Name="CopyConfigFiles" AfterTargets="Build">
+	<Target Name="PostBuild" AfterTargets="Build">
 		<ItemGroup>
-			<FilesToCopy Include="$(ProjectDir)..\config.toml" />
+			<FilesToCopy Include="$(ProjectDir)..\config-example.toml" />
 		</ItemGroup>
-		<Copy SourceFiles="@(FilesToCopy)" DestinationFolder="$(ProjectDir)..\BuildOutput\configs\plugins\cs2-tags\" />
-	</Target>
+		<ItemGroup>
+			<FilesToDelete Include="$(OutputPath)TagsApi.dll" />
+			<FilesToDelete Include="$(OutputPath)TagsApi.pdb" />
+			<FilesToDelete Include="$(OutputPath)CounterStrikeSharp.API.dll" />
+			<FilesToDelete Include="$(OutputPath)McMaster.NETCore.Plugins.dll" />
+			<FilesToDelete Include="$(OutputPath)Microsoft.DotNet.PlatformAbstractions.dll" />
+			<FilesToDelete Include="$(OutputPath)Scrutor.dll" />
+			<FilesToDelete Include="$(OutputPath)System.Diagnostics.Eventlog.dll" />
+			<FilesToDelete Include="$(OutputPath)Microsoft.Extensions.*.dll" />
+			<FilesToDelete Include="$(OutputPath)Serilog*.dll" />
+		</ItemGroup>
 
-	<Target Name="CopyNuGetAssemblies" AfterTargets="Build">
-		<Copy SourceFiles="../Tomlyn.dll" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+		<Copy SourceFiles="@(FilesToCopy)" DestinationFolder="$(ProjectDir)..\BuildOutput\configs\plugins\cs2-tags\" />
+		<Delete Files="@(FilesToDelete)" />
 	</Target>
 </Project>

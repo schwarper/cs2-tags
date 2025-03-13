@@ -1,80 +1,57 @@
 ﻿using CounterStrikeSharp.API.Core;
 using TagsApi;
-using static Tags.Config_Config;
+using static Tags.ConfigManager;
 using static TagsApi.Tags;
 
 namespace Tags;
 
 public class TagsAPI : ITagApi
 {
-    public event Func<CCSPlayerController, string, string, bool, bool, HookResult>? OnMessageProcessPre;
-    public event Func<CCSPlayerController, string, string, bool, bool, HookResult>? OnMessageProcess;
-    public event Action<CCSPlayerController, string, string, bool, bool>? OnMessageProcessPost;
+    public event Func<MessageProcess, HookResult>? OnMessageProcessPre;
+    public event Func<MessageProcess, HookResult>? OnMessageProcess;
+    public event Action<MessageProcess>? OnMessageProcessPost;
     public event Action<CCSPlayerController, Tag>? OnTagsUpdatedPre;
     public event Action<CCSPlayerController, Tag>? OnTagsUpdatedPost;
 
-    public HookResult MessageProcessPre(CCSPlayerController player, string playername, string message, bool chatsound, bool teammessage)
-    {
-        return OnMessageProcessPre?.Invoke(player, playername, message, chatsound, teammessage) ?? HookResult.Continue;
-    }
-    public HookResult MessageProcess(CCSPlayerController player, string playername, string message, bool chatsound, bool teammessage)
-    {
-        return OnMessageProcess?.Invoke(player, playername, message, chatsound, teammessage) ?? HookResult.Continue;
-    }
-    public void MessageProcessPost(CCSPlayerController player, string playername, string message, bool chatsound, bool teammessage)
-    {
-        OnMessageProcessPost?.Invoke(player, playername, message, chatsound, teammessage);
-    }
-    public void TagsUpdatedPre(CCSPlayerController player, Tag tag)
-    {
+    public HookResult MessageProcessPre(MessageProcess messageProcess) =>
+        OnMessageProcessPre?.Invoke(messageProcess) ?? HookResult.Continue;
+
+    public HookResult MessageProcess(MessageProcess messageProcess) =>
+        OnMessageProcess?.Invoke(messageProcess) ?? HookResult.Continue;
+
+    public void MessageProcessPost(MessageProcess messageProcess) =>
+        OnMessageProcessPost?.Invoke(messageProcess);
+
+    public void TagsUpdatedPre(CCSPlayerController player, Tag tag) =>
         OnTagsUpdatedPre?.Invoke(player, tag);
-    }
-    public void TagsUpdatedPost(CCSPlayerController player, Tag tag)
-    {
+
+    public void TagsUpdatedPost(CCSPlayerController player, Tag tag) =>
         OnTagsUpdatedPost?.Invoke(player, tag);
-    }
-    public string GetPlayerTag(CCSPlayerController player, Tags_Tags tag)
-    {
-        return player.GetTag(tag);
-    }
-    public void SetPlayerTag(CCSPlayerController player, Tags_Tags tag, string newtag)
-    {
-        player.SetTag(tag, newtag);
-    }
-    public void ResetPlayerTag(CCSPlayerController player, Tags_Tags tag)
-    {
-        player.ResetTag(tag);
-    }
-    public string GetPlayerColor(CCSPlayerController player, Tags_Colors color)
-    {
-        return player.GetColor(color);
-    }
-    public void SetPlayerColor(CCSPlayerController player, Tags_Colors color, string newcolor)
-    {
-        player.SetColor(color, newcolor);
-    }
-    public void ResetPlayerColor(CCSPlayerController player, Tags_Colors color)
-    {
-        player.ResetColor(color);
-    }
-    public bool GetPlayerChatSound(CCSPlayerController player)
-    {
-        return player.GetChatSound();
-    }
-    public void SetPlayerChatSound(CCSPlayerController player, bool value)
-    {
+
+    public void AddAttribute(CCSPlayerController player, TagType types, TagPrePost prePost, string newValue) =>
+        player.AddAttribute(types, prePost, newValue);
+
+    public void SetAttribute(CCSPlayerController player, TagType types, string newValue) =>
+        player.SetAttribute(types, newValue);
+
+    public string? GetAttribute(CCSPlayerController player, TagType type) =>
+        player.GetAttribute(type);
+
+    public void ResetAttribute(CCSPlayerController player, TagType types) =>
+        player.ResetAttribute(types);
+
+    public bool GetPlayerChatSound(CCSPlayerController player) =>
+        player.GetChatSound();
+
+    public void SetPlayerChatSound(CCSPlayerController player, bool value) =>
         player.SetChatSound(value);
-    }
-    public bool GetPlayerToggleTags(CCSPlayerController player)
-    {
-        return player.GetToggleTags();
-    }
-    public void SetPlayerToggleTags(CCSPlayerController player, bool value)
-    {
-        player.SetToggleTags(value);
-    }
-    public void ReloadTags()
-    {
-        Reload();
-    }
+
+    public bool GetPlayerVisibility(CCSPlayerController player) =>
+        player.GetVisibility();
+
+    public void SetPlayerVisibility(CCSPlayerController player, bool value) =>
+        player.SetVisibility(value);
+
+    public void ReloadTags() =>
+        LoadConfig(true);
 }

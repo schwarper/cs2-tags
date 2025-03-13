@@ -1,13 +1,16 @@
-﻿namespace TagsApi;
+﻿using CounterStrikeSharp.API.Core;
+
+namespace TagsApi;
 
 public abstract class Tags
 {
     public class Tag
     {
-        public string ScoreTag { get; set; } = string.Empty;
-        public string ChatTag { get; set; } = string.Empty;
-        public string ChatColor { get; set; } = string.Empty;
-        public string NameColor { get; set; } = string.Empty;
+        public string? ScoreTag { get; set; }
+        public string? ChatTag { get; set; }
+        public string? ChatColor { get; set; }
+        public string? NameColor { get; set; }
+        public bool Visibility { get; set; } = true;
         public bool ChatSound { get; set; } = true;
 
         public Tag Clone()
@@ -18,20 +21,35 @@ public abstract class Tags
                 ChatTag = ChatTag,
                 ChatColor = ChatColor,
                 NameColor = NameColor,
+                Visibility = Visibility,
                 ChatSound = ChatSound
             };
         }
     }
 
-    public enum Tags_Tags
+    public class MessageProcess
     {
-        ScoreTag,
-        ChatTag
+        public required CCSPlayerController Player { get; set; }
+        public required Tag Tag { get; set; }
+        public string PlayerName { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public bool ChatSound { get; set; } = true;
+        public bool TeamMessage { get; set; } = false;
     }
 
-    public enum Tags_Colors
+    [Flags]
+    public enum TagType
     {
-        ChatColor,
-        NameColor
+        None = 0,
+        ScoreTag = 1 << 0,
+        ChatTag = 1 << 1,
+        NameColor = 1 << 2,
+        ChatColor = 1 << 3
+    }
+
+    public enum TagPrePost
+    {
+        Pre,
+        Post
     }
 }

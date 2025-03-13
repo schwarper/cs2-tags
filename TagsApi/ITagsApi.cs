@@ -8,21 +8,19 @@ public interface ITagApi
 {
     public static readonly PluginCapability<ITagApi> Capability = new("tags:api");
 
-    public event Func<CCSPlayerController, string, string, bool, bool, HookResult>? OnMessageProcessPre;
-    public event Func<CCSPlayerController, string, string, bool, bool, HookResult>? OnMessageProcess;
-    public event Action<CCSPlayerController, string, string, bool, bool>? OnMessageProcessPost;
+    public event Func<MessageProcess, HookResult>? OnMessageProcessPre;
+    public event Func<MessageProcess, HookResult>? OnMessageProcess;
+    public event Action<MessageProcess>? OnMessageProcessPost;
     public event Action<CCSPlayerController, Tag>? OnTagsUpdatedPre;
     public event Action<CCSPlayerController, Tag>? OnTagsUpdatedPost;
 
-    public string GetPlayerTag(CCSPlayerController player, Tags_Tags tag);
-    public void SetPlayerTag(CCSPlayerController player, Tags_Tags tag, string newtag);
-    public void ResetPlayerTag(CCSPlayerController player, Tags_Tags tag);
-    public string GetPlayerColor(CCSPlayerController player, Tags_Colors color);
-    public void SetPlayerColor(CCSPlayerController player, Tags_Colors color, string newcolor);
-    public void ResetPlayerColor(CCSPlayerController player, Tags_Colors color);
+    public void AddAttribute(CCSPlayerController player, TagType types, TagPrePost prePost, string newValue);
+    public void SetAttribute(CCSPlayerController player, TagType types, string newValue);
+    public string? GetAttribute(CCSPlayerController player, TagType type);
+    public void ResetAttribute(CCSPlayerController player, TagType types);
     public bool GetPlayerChatSound(CCSPlayerController player);
     public void SetPlayerChatSound(CCSPlayerController controller, bool value);
-    public bool GetPlayerToggleTags(CCSPlayerController player);
-    public void SetPlayerToggleTags(CCSPlayerController player, bool value);
+    public bool GetPlayerVisibility(CCSPlayerController player);
+    public void SetPlayerVisibility(CCSPlayerController player, bool value);
     public void ReloadTags();
 }

@@ -6,13 +6,21 @@ using System.Reflection;
 using Tomlyn;
 using Tomlyn.Model;
 using static Tags.Tags;
-using static Tags.TagsLibrary;
 using static TagsApi.Tags;
 
 namespace Tags;
 
-public static class Config_Config
+public static class ConfigManager
 {
+    public class Cfg
+    {
+        public Settings Settings { get; set; } = new();
+        public DatabaseConnection DatabaseConnection { get; set; } = new();
+        public Commands Commands { get; set; } = new();
+        public Tag DefaultTags { get; set; } = new();
+        public Dictionary<string, Tag> Tags { get; set; } = [];
+    }
+
     public class Settings
     {
         public string Tag { get; set; } = string.Empty;
@@ -20,21 +28,31 @@ public static class Config_Config
         public Dictionary<CsTeam, string> TeamNames { get; set; } = [];
     }
 
-    public class Cfg
+    public class DatabaseConnection
     {
-        public Settings Settings { get; set; } = new();
-        public Tag DefaultTags { get; set; } = new();
-        public Dictionary<string, Tag> Tags { get; set; } = [];
+        public bool MySQL { get; set; } = true;
+        public string Host { get; set; } = string.Empty;
+        public uint Port { get; set; } = 3306;
+        public string User { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+    }
+
+    public class Commands
+    {
+        public string[] TagsReload { get; set; } = [];
+        public string[] Visibility { get; set; } = [];
+        public string[] TagsMenu { get; set; } = [];
     }
 
     public static Cfg Config { get; set; } = new();
-    private static readonly string ConfigPath;
+    private static readonly string ConfigFilePath;
 
-    static Config_Config()
+    static ConfigManager()
     {
         string assemblyName = Assembly.GetExecutingAssembly().GetName().Name ?? string.Empty;
-
-        ConfigPath = Path.Combine(Server.GameDirectory,
+        ConfigFilePath = Path.Combine(
+            Server.GameDirectory,
             "csgo",
             "addons",
             "counterstrikesharp",
@@ -45,76 +63,114 @@ public static class Config_Config
         );
     }
 
-    public static void Reload()
+    public static void LoadConfig(bool hotReload)
     {
-        Config.Tags.Clear();
+        if (!File.Exists(ConfigFilePath))
+            throw new FileNotFoundException($"Configuration file not found: {ConfigFilePath}");
+
+        Config = new();
         PlayerTagsList.Clear();
 
-        Load();
-        LoadPlayersTag();
-    }
-
-    public static void LoadPlayersTag()
-    {
-        GetPlayers(out HashSet<CCSPlayerController> players);
-
-        if (players.Count == 0)
-        {
-            return;
-        }
-
-        foreach (CCSPlayerController player in players)
-        {
-            player.LoadTag();
-        }
-    }
-
-    public static void Load()
-    {
-        if (!File.Exists(ConfigPath))
-        {
-            throw new FileNotFoundException($"Configuration file not found: {ConfigPath}");
-        }
-
-        string configText = File.ReadAllText(ConfigPath);
+        string configText = File.ReadAllText(ConfigFilePath);
         TomlTable model = Toml.ToModel(configText);
 
-        TomlTable table = (TomlTable)model["Settings"];
-        Config.Settings.Tag = table["Tag"].ToString()!.ReplaceColorTags();
+        foreach ((string key, object value) in model)
+        {
+            TomlTable table = (TomlTable)value;
 
+            switch (key)
+            {
+                case "Settings":
+                    LoadSettings(table);
+                    break;
+                case "Default":
+                    LoadDefaultTags(table);
+                    break;
+                case "DatabaseConnection":
+                    LoadDatabaseConnection(table);
+                    break;
+                case "Commands":
+                    LoadCommands(table);
+                    break;
+                default:
+                    LoadCustomTag(key, table);
+                    break;
+            }
+        }
+
+        if (hotReload)
+            LoadPlayerTags();
+    }
+
+    private static void LoadSettings(TomlTable table)
+    {
+        Config.Settings.Tag = table["Tag"].ToString()!.ReplaceColorTags();
         Config.Settings.DeadName = table["DeadName"].ToString()!;
+
         Config.Settings.TeamNames[CsTeam.None] = TagsLibrary.ReplaceTags(table["NoneName"]?.ToString()!, CsTeam.None);
         Config.Settings.TeamNames[CsTeam.Spectator] = TagsLibrary.ReplaceTags(table["SpecName"]?.ToString()!, CsTeam.Spectator);
         Config.Settings.TeamNames[CsTeam.Terrorist] = TagsLibrary.ReplaceTags(table["TName"]?.ToString()!, CsTeam.Terrorist);
         Config.Settings.TeamNames[CsTeam.CounterTerrorist] = TagsLibrary.ReplaceTags(table["CTName"]?.ToString()!, CsTeam.CounterTerrorist);
+    }
 
-        table = (TomlTable)model["Default"];
-        Config.DefaultTags.ScoreTag = table["ScoreTag"].ToString()!;
-        Config.DefaultTags.ChatTag = table["ChatTag"].ToString()!;
-        Config.DefaultTags.ChatColor = table["ChatColor"].ToString()!;
-        Config.DefaultTags.NameColor = table["NameColor"].ToString()!;
-        Config.DefaultTags.ChatSound = bool.Parse(table["ChatSound"].ToString()!);
+    private static void LoadDefaultTags(TomlTable table)
+    {
+        table.SetIfPresent("ScoreTag", (string value) => Config.DefaultTags.ScoreTag = value);
+        table.SetIfPresent("ChatTag", (string value) => Config.DefaultTags.ChatTag = value);
+        table.SetIfPresent("ChatColor", (string value) => Config.DefaultTags.ChatColor = value);
+        table.SetIfPresent("NameColor", (string value) => Config.DefaultTags.NameColor = value);
+        table.SetIfPresent("ChatSound", (bool value) => Config.DefaultTags.ChatSound = value);
+    }
 
-        foreach (KeyValuePair<string, object> tags in model)
+    private static void LoadDatabaseConnection(TomlTable table)
+    {
+        Config.DatabaseConnection.MySQL = bool.Parse(table["MySQL"].ToString()!);
+
+        if (Config.DatabaseConnection.MySQL)
         {
-            string key = tags.Key;
-
-            if (key is "Settings" or "Default")
+            Config.DatabaseConnection = new DatabaseConnection
             {
-                continue;
-            }
+                Host = table["Host"].ToString()!,
+                Port = uint.Parse(table["Port"].ToString()!),
+                User = table["User"].ToString()!,
+                Password = table["Password"].ToString()!,
+                Name = table["Name"].ToString()!,
+            };
+        }
 
-            table = (TomlTable)tags.Value;
+        Database.SetConnectionString(Config.DatabaseConnection);
+        Task.Run(Database.CreateDatabaseAsync);
+    }
 
-            Tag configTag = new();
+    private static void LoadCommands(TomlTable table)
+    {
+        Config.Commands.TagsReload = table["TagsReload"].GetStringArray();
+        Config.Commands.Visibility = table["Visibility"].GetStringArray();
+        Config.Commands.TagsMenu = table["TagsMenu"].GetStringArray();
+    }
 
-            table.SetIfPresent("ScoreTag", (string stag) => configTag.ScoreTag = stag);
-            table.SetIfPresent("ChatTag", (string ctag) => configTag.ChatTag = ctag);
-            table.SetIfPresent("ChatColor", (string ccolor) => configTag.ChatColor = ccolor);
-            table.SetIfPresent("NameColor", (string ncolor) => configTag.NameColor = ncolor);
-            table.SetIfPresent("ChatSound", (bool csound) => configTag.ChatSound = csound);
+    private static void LoadCustomTag(string key, TomlTable table)
+    {
+        Tag configTag = new();
+        table.SetIfPresent("ScoreTag", (string value) => configTag.ScoreTag = value);
+        table.SetIfPresent("ChatTag", (string value) => configTag.ChatTag = value);
+        table.SetIfPresent("ChatColor", (string value) => configTag.ChatColor = value);
+        table.SetIfPresent("NameColor", (string value) => configTag.NameColor = value);
+        table.SetIfPresent("ChatSound", (bool value) => configTag.ChatSound = value);
 
-            Config.Tags.Add(key, configTag);
+        Config.Tags[key] = configTag;
+    }
+
+    public static void LoadPlayerTags()
+    {
+        List<CCSPlayerController> players = [.. Utilities.GetPlayers().Where(p => !p.IsBot)];
+
+        if (players.Count == 0)
+            return;
+
+        foreach (CCSPlayerController player in players)
+        {
+            Database.LoadPlayer(player);
         }
     }
 }

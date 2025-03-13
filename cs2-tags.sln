@@ -1,8 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35825.156 d17.13
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "cs2-tags", "cs2-tags\cs2-tags.csproj", "{8F7EF308-8867-4802-B12F-5E27A2AF9995}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TagsApi", "TagsApi\TagsApi.csproj", "{A4E0FE20-CD3C-4E3D-95CE-AE48F7A77DF7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cs2-tags-api-test", "cs2-tags-api-test\cs2-tags-api-test.csproj", "{C5D0F7AE-D2E4-EC93-ABCC-3511E1A97C36}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -18,6 +23,10 @@ Global
 		{A4E0FE20-CD3C-4E3D-95CE-AE48F7A77DF7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A4E0FE20-CD3C-4E3D-95CE-AE48F7A77DF7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A4E0FE20-CD3C-4E3D-95CE-AE48F7A77DF7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C5D0F7AE-D2E4-EC93-ABCC-3511E1A97C36}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C5D0F7AE-D2E4-EC93-ABCC-3511E1A97C36}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C5D0F7AE-D2E4-EC93-ABCC-3511E1A97C36}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C5D0F7AE-D2E4-EC93-ABCC-3511E1A97C36}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
