@@ -1,0 +1,17 @@
+{
+  "Tags are now visible": "{white}Tagi są teraz widoczne.",
+  "Tags are now hidden": "{white}Tagi są teraz ukryte",
+
+  "Main Menu": "Menu Tagów",
+  "Score Tag": "Tag w tabeli",
+  "Chat Tag": "Tag na czat",
+  "Chat Color": "Kolor wiadomości",
+  "Name Color": "Kolor nicku",
+  "Visibility": "Widoczność",
+  "Selection": "Wybór",
+  "Current": "Obecny: ",
+  "Modify": "Zmień: ",
+  "Selected": "Wybrano: ",
+  "Select": "Wybierz",
+  "Selected option": "{white}Wybrałeś {green}{0} {white}jako {blue}{1}"
+}
