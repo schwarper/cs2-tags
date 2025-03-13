@@ -16,8 +16,8 @@ Discord link : [Discord server](https://discord.gg/4zQfUzjk36)
 [@Yarukon](https://github.com/Yarukon)
 
 ## Colors
+**Please do not use Default, use White instead**.
 ```
-Default
 White
 TeamColor
 DarkRed
