@@ -1,0 +1,17 @@
+{
+  "Tags are now visible": "{white}标签显示{green}已开启",
+  "Tags are now hidden": "{white}标签显示{red}已关闭",
+
+  "Main Menu": "标签菜单",
+  "Score Tag": "计分板标签",
+  "Chat Tag": "聊天标签",
+  "Chat Color": "聊天颜色",
+  "Name Color": "名字颜色",
+  "Visibility": "标签显示",
+  "Selection": "标签选项",
+  "Current": "当前显示: ",
+  "Modify": "自定义: ",
+  "Selected": "已选择: ",
+  "Select": "选择",
+  "Selected option": "{white}你选择了{green}{0}{white}作为{blue}{1}"
+}
