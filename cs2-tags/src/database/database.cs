@@ -5,7 +5,6 @@ using Microsoft.Data.Sqlite;
 using MySqlConnector;
 using System.Data.Common;
 using System.Reflection;
-using static Tags.ConfigManager;
 using static Tags.Tags;
 using static TagsApi.Tags;
 
@@ -13,22 +12,24 @@ namespace Tags;
 
 public static class Database
 {
-    private static bool UseMySQL => Config.DatabaseConnection.MySQL;
-    public static string GlobalDatabaseConnectionString { get; set; } = string.Empty;
+    private static bool UseMySQL;
+    private static string GlobalDatabaseConnectionString = string.Empty;
 
-    public static void SetConnectionString(DatabaseConnection config)
+    internal static void SetDatabase(Config config)
     {
+        UseMySQL = config.DatabaseConnection.MySQL;
+
         string assemblyName = Assembly.GetExecutingAssembly().GetName().Name ?? string.Empty;
         string dbFile = Path.Combine(Server.GameDirectory, "csgo", "addons", "counterstrikesharp", "configs", "plugins", assemblyName, $"{assemblyName}.db");
 
         GlobalDatabaseConnectionString = UseMySQL
             ? new MySqlConnectionStringBuilder
             {
-                Server = config.Host,
-                Database = config.Name,
-                UserID = config.User,
-                Password = config.Password,
-                Port = config.Port,
+                Server = config.DatabaseConnection.Host,
+                Database = config.DatabaseConnection.Name,
+                UserID = config.DatabaseConnection.User,
+                Password = config.DatabaseConnection.Password,
+                Port = config.DatabaseConnection.Port,
                 Pooling = true,
                 MinimumPoolSize = 0,
                 MaximumPoolSize = 640,
@@ -36,8 +37,6 @@ public static class Database
                 AllowZeroDateTime = true
             }.ConnectionString
             : $"Data Source={dbFile}";
-
-        Console.WriteLine(dbFile);
     }
 
     public static async Task<DbConnection> ConnectAsync()
@@ -46,6 +45,13 @@ public static class Database
         DbConnection connection = UseMySQL ? new MySqlConnection(GlobalDatabaseConnectionString) : new SqliteConnection(GlobalDatabaseConnectionString);
         await connection.OpenAsync();
         return connection;
+    }
+
+    public static void CreateDatabase(Config config)
+    {
+        SetDatabase(config);
+
+        CSSThread.RunOnMainThread(async () => await CreateDatabaseAsync());
     }
 
     public static async Task CreateDatabaseAsync()
@@ -127,16 +133,17 @@ public static class Database
 
     public static void SavePlayer(CCSPlayerController player)
     {
-        CSSThread.RunOnMainThread(async () =>
+        if (PlayerTagsList.TryGetValue(player.SteamID, out Tag? tags))
         {
-            await SavePlayerAsync(player);
-        });
+            CSSThread.RunOnMainThread(async () =>
+            {
+                await SavePlayerAsync(player.SteamID, tags);
+            });
+        }
     }
 
-    public static async Task SavePlayerAsync(CCSPlayerController player)
+    public static async Task SavePlayerAsync(ulong SteamID, Tag playerData)
     {
-        Tag playerData = PlayerTagsList[player];
-
         using DbConnection connection = await ConnectAsync();
 
         await connection.ExecuteAsync(@"
@@ -154,9 +161,9 @@ public static class Database
             playerData.ChatColor,
             playerData.NameColor,
             playerData.Visibility,
-            player.SteamID
+            SteamID
         });
 
-        PlayerTagsList.Remove(player);
+        PlayerTagsList.Remove(SteamID);
     }
 }

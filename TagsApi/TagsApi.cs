@@ -6,6 +6,7 @@ public abstract class Tags
 {
     public class Tag
     {
+        public string? Role { get; set; }
         public string? ScoreTag { get; set; }
         public string? ChatTag { get; set; }
         public string? ChatColor { get; set; }

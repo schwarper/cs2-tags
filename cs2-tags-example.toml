@@ -1,0 +1,43 @@
+[Settings]
+Tag = "{red}[CSS] "
+MenuType = "CenterHtmlMenu" # Supported MenuTypes => ConsoleMenu, ChatMenu, CenterHtmlMenu, WasdMenu, ScreenMenu
+DeadName = "☠"
+NoneName = "{White}(NONE)"
+SpecName = "{Purple}(SPEC)"
+TName = "{Yellow}(T)"
+CTName = "{Blue}(CT)"
+
+[DatabaseConnection]
+MySQL = true
+Host = ""
+Port = 3306
+User = ""
+Password = ""
+Name = ""
+
+[Commands]
+TagsReload = [ "css_tags_reload" ]
+Visibility = [ "css_toggletags", "css_visibility" ]
+TagsMenu = [ "css_tags" ]
+
+[Default]
+ScoreTag = ""
+ChatTag = "{Grey}[Player]"
+ChatColor = "{White}"
+NameColor = "{TeamColor}"
+ChatSound = true
+
+[[Tags]]
+Role = "76561199165718810"
+ScoreTag = ""
+ChatTag = "{Red}[schwarper] "
+ChatColor = "{green}"
+NameColor = "{TeamColor}"
+ChatSound = false
+
+[[Tags]]
+Role = "#OWNER"
+ScoreTag = ""
+ChatTag = "{Red}[OWNER] "
+ChatColor = "{green}"
+NameColor = "{TeamColor}"

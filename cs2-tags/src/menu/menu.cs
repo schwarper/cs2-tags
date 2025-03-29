@@ -1,47 +1,78 @@
 ﻿using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Admin;
-using CounterStrikeSharp.API.Modules.Menu;
-using static Tags.ConfigManager;
+using CS2MenuManager.API.Enum;
+using CS2MenuManager.API.Interface;
+using CS2MenuManager.API.Menu;
+using static Tags.Tags;
 using static TagsApi.Tags;
 
 namespace Tags;
 
-public partial class Tags
+public static class Menu
 {
-    public CenterHtmlMenu MainMenu(CCSPlayerController player)
+    private readonly static Type _menuType;
+
+    static Menu()
     {
-        Tag playerData = PlayerTagsList[player];
+        Dictionary<string, Type> menuTypes = new()
+        {
+            { "ChatMenu", typeof(ChatMenu) },
+            { "ConsoleMenu", typeof(ConsoleMenu) },
+            { "CenterHtmlMenu", typeof(CenterHtmlMenu) },
+            { "WasdMenu", typeof(WasdMenu) },
+            { "ScreenMenu", typeof(ScreenMenu) },
+        };
 
-        CenterHtmlMenu menu = new(Localizer.ForPlayer(player, "Main Menu"), this);
+        _menuType = menuTypes.TryGetValue(Instance.Config.Settings.MenuType, out Type? menuType) ? menuType : typeof(CenterHtmlMenu);
+    }
 
-        menu.AddMenuOption(Localizer.ForPlayer(player, "Score Tag"), (p, o) => SubMenuFirst(p, playerData, TagType.ScoreTag, o.Text).Open(p));
-        menu.AddMenuOption(Localizer.ForPlayer(player, "Chat Tag"), (p, o) => SubMenuFirst(p, playerData, TagType.ChatTag, o.Text).Open(p));
-        menu.AddMenuOption(Localizer.ForPlayer(player, "Chat Color"), (p, o) => SubMenuFirst(p, playerData, TagType.ChatColor, o.Text).Open(p));
-        menu.AddMenuOption(Localizer.ForPlayer(player, "Name Color"), (p, o) => SubMenuFirst(p, playerData, TagType.NameColor, o.Text).Open(p));
+    public static IMenu MenuByType(string title)
+    {
+        return _menuType switch
+        {
+            Type t when t == typeof(ChatMenu) => new ChatMenu(title, Instance),
+            Type t when t == typeof(ConsoleMenu) => new ConsoleMenu(title, Instance),
+            Type t when t == typeof(CenterHtmlMenu) => new CenterHtmlMenu(title, Instance),
+            Type t when t == typeof(WasdMenu) => new WasdMenu(title, Instance),
+            Type t when t == typeof(ScreenMenu) => new ScreenMenu(title, Instance) { ShowResolutionsOption = false },
+            _ => new CenterHtmlMenu(title, Instance)
+        };
+    }
+
+    public static IMenu MainMenu(CCSPlayerController player)
+    {
+        Tag playerData = PlayerTagsList[player.SteamID];
+
+        IMenu menu = MenuByType(Instance.Localizer.ForPlayer(player, "Main Menu"));
+
+        menu.AddItem(Instance.Localizer.ForPlayer(player, "Score Tag"), (p, o) => SubMenuFirst(p, playerData, TagType.ScoreTag, o.Text).Display(p, 0));
+        menu.AddItem(Instance.Localizer.ForPlayer(player, "Chat Tag"), (p, o) => SubMenuFirst(p, playerData, TagType.ChatTag, o.Text).Display(p, 0));
+        menu.AddItem(Instance.Localizer.ForPlayer(player, "Chat Color"), (p, o) => SubMenuFirst(p, playerData, TagType.ChatColor, o.Text).Display(p, 0));
+        menu.AddItem(Instance.Localizer.ForPlayer(player, "Name Color"), (p, o) => SubMenuFirst(p, playerData, TagType.NameColor, o.Text).Display(p, 0));
 
         if (AdminManager.PlayerHasPermissions(player, "@css/admin"))
         {
             bool visibility = playerData.Visibility;
-            string visibilityText = $"{Localizer.ForPlayer(player, "Visibility")} [{(visibility ? "✔️" : "❌")}]";
+            string visibilityText = $"{Instance.Localizer.ForPlayer(player, "Visibility")} [{(visibility ? "✔️" : "❌")}]";
 
-            menu.AddMenuOption(visibilityText, (p, o) =>
+            menu.AddItem(visibilityText, (p, o) =>
             {
                 player.SetVisibility(!visibility);
-                player.PrintToChat(Config.Settings.Tag + Localizer.ForPlayer(player, visibility ? "Tags are now hidden" : "Tags are now visible"));
-                MainMenu(p).Open(p);
+                player.PrintToChat(Instance.Config.Settings.Tag + Instance.Localizer.ForPlayer(player, visibility ? "Tags are now hidden" : "Tags are now visible"));
+                MainMenu(p).Display(p, 0);
             });
         }
 
         return menu;
     }
 
-    public CenterHtmlMenu SubMenuFirst(CCSPlayerController player, Tag playerData, TagType type, string title)
+    public static IMenu SubMenuFirst(CCSPlayerController player, Tag playerData, TagType type, string title)
     {
-        CenterHtmlMenu menu = new($"{title} {Localizer.ForPlayer(player, "Selection")}", this);
+        IMenu menu = MenuByType($"{title} {Instance.Localizer.ForPlayer(player, "Selection")}");
 
         string currentValue = GetTagValue(playerData, type)?.ToString() ?? string.Empty;
-        menu.AddMenuOption($"{Localizer.ForPlayer(player, "Current")} {currentValue.ConvertToHtml(player.Team)}", (p, o) => { }, true);
+        menu.AddItem($"{Instance.Localizer.ForPlayer(player, "Current")} {currentValue.ConvertToHtml(player.Team, _menuType == typeof(CenterHtmlMenu))}", DisableOption.DisableHideNumber);
 
         List<Tag> tags = player.GetTags();
         HashSet<string> tagsHash = [];
@@ -54,20 +85,21 @@ public partial class Tags
             if (!tagsHash.Add(tagValue))
                 continue;
 
-            string tagValueHtml = tagValue.ConvertToHtml(player.Team);
-            bool disable = tagValue == currentValue;
-            menu.AddMenuOption(tagValueHtml, (p, o) => SubMenuSecond(p, playerData, type, tagValue, tagValueHtml, title).Open(p), disable);
+            string tagValueHtml = tagValue.ConvertToHtml(player.Team, _menuType == typeof(CenterHtmlMenu));
+            DisableOption option = tagValue == currentValue ? DisableOption.DisableHideNumber : DisableOption.None;
+            menu.AddItem(tagValueHtml, (p, o) => SubMenuSecond(p, playerData, type, tagValue, tagValueHtml, title).Display(p, 0), option);
         }
 
+        menu.PrevMenu = MainMenu(player);
         return menu;
     }
 
-    public CenterHtmlMenu SubMenuSecond(CCSPlayerController player, Tag playerData, TagType type, string selected, string selectedhtml, string title)
+    public static IMenu SubMenuSecond(CCSPlayerController player, Tag playerData, TagType type, string selected, string selectedhtml, string title)
     {
-        CenterHtmlMenu menu = new($"{Localizer.ForPlayer(player, "Modify")} {title}", this);
+        IMenu menu = MenuByType($"{Instance.Localizer.ForPlayer(player, "Modify")} {title}");
 
-        menu.AddMenuOption($"{Localizer.ForPlayer(player, "Selected")} {selectedhtml}", (p, o) => { }, true);
-        menu.AddMenuOption(Localizer.ForPlayer(player, "Select"), (p, o) =>
+        menu.AddItem($"{Instance.Localizer.ForPlayer(player, "Selected")} {selectedhtml}", DisableOption.DisableHideNumber);
+        menu.AddItem(Instance.Localizer.ForPlayer(player, "Select"), (p, o) =>
         {
             SetPlayerTagValue(p, playerData, type, selected);
 
@@ -75,42 +107,11 @@ public partial class Tags
                 $"{selected.ReplaceTags(player.Team)}{selected.Split(['{', '}'], StringSplitOptions.None)[1]}" :
                 selected.ReplaceTags(player.Team);
 
-            player.PrintToChat(Config.Settings.Tag + Localizer.ForPlayer(player, "Selected option", title, value));
-            MainMenu(p).Open(p);
+            player.PrintToChat(Instance.Config.Settings.Tag + Instance.Localizer.ForPlayer(player, "Selected option", title, value));
+            MainMenu(p).Display(p, 0);
         });
 
+        menu.PrevMenu = MainMenu(player);
         return menu;
-    }
-
-    private static string? GetTagValue(Tag tag, TagType type)
-    {
-        return type switch
-        {
-            TagType.ScoreTag => tag.ScoreTag,
-            TagType.ChatTag => tag.ChatTag,
-            TagType.ChatColor => tag.ChatColor,
-            TagType.NameColor => tag.NameColor,
-            _ => null
-        };
-    }
-
-    private static void SetPlayerTagValue(CCSPlayerController player, Tag playerData, TagType type, object value)
-    {
-        switch (type)
-        {
-            case TagType.ScoreTag:
-                playerData.ScoreTag = (string)value;
-                player.SetScoreTag(playerData.ScoreTag);
-                break;
-            case TagType.ChatTag:
-                playerData.ChatTag = (string)value;
-                break;
-            case TagType.ChatColor:
-                playerData.ChatColor = (string)value;
-                break;
-            case TagType.NameColor:
-                playerData.NameColor = (string)value;
-                break;
-        }
     }
 }

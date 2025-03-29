@@ -9,18 +9,18 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="CounterStrikeSharp.API" Version="1.0.305" />
+		<PackageReference Include="CounterStrikeSharp.API" Version="1.0.314" />
+		<PackageReference Include="CS2MenuManager" Version="1.0.25" />
 		<PackageReference Include="Dapper" Version="2.1.66" />
 		<PackageReference Include="MySqlConnector" Version="2.4.0" />
-		<PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.7" />
-		<PackageReference Include="Tomlyn" Version="0.19.0" />
+		<PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.3" />
 		<ProjectReference Include="..\TagsApi\TagsApi.csproj" />
 		<None Update="lang\**\*.*" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 
 	<Target Name="PostBuild" AfterTargets="Build">
 		<ItemGroup>
-			<FilesToCopy Include="$(ProjectDir)..\config-example.toml" />
+			<FilesToCopy Include="$(ProjectDir)..\cs2-tags-example.toml" />
 		</ItemGroup>
 		<ItemGroup>
 			<FilesToDelete Include="$(OutputPath)TagsApi.dll" />
@@ -32,6 +32,8 @@
 			<FilesToDelete Include="$(OutputPath)System.Diagnostics.Eventlog.dll" />
 			<FilesToDelete Include="$(OutputPath)Microsoft.Extensions.*.dll" />
 			<FilesToDelete Include="$(OutputPath)Serilog*.dll" />
+			<FilesToDelete Include="$(OutputPath)CS2MenuManager.dll" />
+			<FilesToDelete Include="$(OutputPath)Tomlyn.dll" />
 		</ItemGroup>
 
 		<Copy SourceFiles="@(FilesToCopy)" DestinationFolder="$(ProjectDir)..\BuildOutput\configs\plugins\cs2-tags\" />

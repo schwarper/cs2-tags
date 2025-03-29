@@ -5,13 +5,10 @@ using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Utils;
 using System.Text;
 using System.Text.RegularExpressions;
-using Tomlyn.Model;
-using static Tags.ConfigManager;
 using static Tags.Tags;
 using static TagsApi.Tags;
 
 namespace Tags;
-
 
 public static partial class TagsLibrary
 {
@@ -42,59 +39,58 @@ public static partial class TagsLibrary
     [GeneratedRegex(@"\{.*?\}|\p{C}")]
     public static partial Regex MyRegex();
 
-    public static string Name(this CsTeam team) => Config.Settings.TeamNames[team];
-
-    public static string RemoveCurlyBraceContent(this string message) =>
-        MyRegex().Replace(message, string.Empty);
-
-    public static string ReplaceTags(this string message, CsTeam team) =>
-        StringExtensions.ReplaceColorTags(message)
-            .Replace("{TeamColor}", ChatColors.ForTeam(team).ToString());
-
-    public static string FormatMessage(CsTeam team, params string[] args) =>
-        ReplaceTags(string.Concat(args), team);
-
-    public static string[] GetStringArray(this object tomlArray) =>
-        [.. ((TomlArray)tomlArray).Select(item => item!.ToString()!)];
-
-    public static void SetIfPresent<T>(this TomlTable table, string key, Action<T> setter)
+    public static string Name(this CsTeam team)
     {
-        if (table.TryGetValue(key, out object? value) && value is T typedValue)
-            setter(typedValue);
+        return Instance.Config.Settings.TeamNames[team];
     }
 
-    public static Tag GetTag(this CCSPlayerController player) =>
-        Config.Tags.TryGetValue(player.SteamID.ToString(), out Tag? steamidTag) ? steamidTag.Clone() :
-        Config.Tags.FirstOrDefault(tag => tag.Key[0] == '#' && AdminManager.PlayerInGroup(player, tag.Key)).Value?.Clone() ??
-        Config.Tags.FirstOrDefault(tag => tag.Key[0] == '@' && AdminManager.PlayerHasPermissions(player, tag.Key)).Value?.Clone() ??
-        Config.DefaultTags.Clone();
+    public static string RemoveCurlyBraceContent(this string message)
+    {
+        return MyRegex().Replace(message, string.Empty);
+    }
+
+    public static string ReplaceTags(this string message, CsTeam team)
+    {
+        return StringExtensions.ReplaceColorTags(message)
+            .Replace("{TeamColor}", ChatColors.ForTeam(team).ToString());
+    }
+
+    public static string FormatMessage(CsTeam team, params string[] args)
+    {
+        return ReplaceTags(string.Concat(args), team);
+    }
+
+    public static Tag GetTag(this CCSPlayerController player)
+    {
+        return Instance.Config.Tags.FirstOrDefault(tag => player.SteamID.ToString() == tag.Role)?.Clone() ??
+            Instance.Config.Tags.FirstOrDefault(tag => tag.Role?[0] == '#' && AdminManager.PlayerInGroup(player, tag.Role))?.Clone() ??
+            Instance.Config.Tags.FirstOrDefault(tag => tag.Role?[0] == '@' && AdminManager.PlayerHasPermissions(player, tag.Role))?.Clone() ??
+            Instance.Config.Default.Clone();
+    }
 
     public static List<Tag> GetTags(this CCSPlayerController player)
     {
         string steamID = player.SteamID.ToString();
 
         return
-            [
-                Config.DefaultTags.Clone(),
-                .. Config.Tags
-                    .Where(tag =>
-                        tag.Key == steamID ||
-                        (tag.Key[0] == '#' && AdminManager.PlayerInGroup(player, tag.Key)) ||
-                        (tag.Key[0] == '@' && AdminManager.PlayerHasPermissions(player, tag.Key))
-                    )
-                    .Select(tag => tag.Value.Clone()),
-            ];
+        [
+            Instance.Config.Default.Clone(),
+            .. Instance.Config.Tags
+                .Where(tag =>
+                    tag.Role == steamID ||
+                    (tag.Role ?[0] == '#' && AdminManager.PlayerInGroup(player, tag.Role)) ||
+                    (tag.Role ?[0] == '@' && AdminManager.PlayerHasPermissions(player, tag.Role))
+                )
+                .Select(tag => tag.Clone()),
+        ];
     }
 
     public static void UpdateTag(this CCSPlayerController player, Tag tag)
     {
-        Server.NextFrame(() =>
-        {
-            Tags.Api.TagsUpdatedPre(player, tag);
-            PlayerTagsList[player] = tag;
-            player.SetScoreTag(tag.ScoreTag);
-            Tags.Api.TagsUpdatedPost(player, tag);
-        });
+        Tags.Api.TagsUpdatedPre(player, tag);
+        PlayerTagsList[player.SteamID] = tag;
+        player.SetScoreTag(tag.ScoreTag);
+        Tags.Api.TagsUpdatedPost(player, tag);
     }
 
     private static string GetPrePostValue(TagPrePost prePost, string? oldValue, string newValue)
@@ -109,7 +105,7 @@ public static partial class TagsLibrary
 
     public static void AddAttribute(this CCSPlayerController player, TagType types, TagPrePost prePost, string newValue)
     {
-        Tag playerData = PlayerTagsList[player];
+        Tag playerData = PlayerTagsList[player.SteamID];
         Tags.Api.TagsUpdatedPre(player, playerData);
 
         if ((types & TagType.ScoreTag) != 0)
@@ -138,7 +134,7 @@ public static partial class TagsLibrary
 
     public static void SetAttribute(this CCSPlayerController player, TagType types, string newValue)
     {
-        Tag playerData = PlayerTagsList[player];
+        Tag playerData = PlayerTagsList[player.SteamID];
         Tags.Api.TagsUpdatedPre(player, playerData);
 
         if ((types & TagType.ScoreTag) != 0)
@@ -163,7 +159,7 @@ public static partial class TagsLibrary
 
     public static string? GetAttribute(this CCSPlayerController player, TagType type)
     {
-        Tag playerData = PlayerTagsList[player];
+        Tag playerData = PlayerTagsList[player.SteamID];
         return type switch
         {
             TagType.ScoreTag => playerData.ScoreTag,
@@ -176,7 +172,7 @@ public static partial class TagsLibrary
 
     public static void ResetAttribute(this CCSPlayerController player, TagType types)
     {
-        Tag playerData = PlayerTagsList[player];
+        Tag playerData = PlayerTagsList[player.SteamID];
         Tags.Api.TagsUpdatedPre(player, playerData);
         Tag defaultTag = GetTag(player);
 
@@ -201,26 +197,30 @@ public static partial class TagsLibrary
         Tags.Api.TagsUpdatedPost(player, playerData);
     }
 
-    public static bool GetChatSound(this CCSPlayerController player) =>
-        PlayerTagsList[player].ChatSound;
+    public static bool GetChatSound(this CCSPlayerController player)
+    {
+        return PlayerTagsList[player.SteamID].ChatSound;
+    }
 
     public static void SetChatSound(this CCSPlayerController player, bool value)
     {
-        Tag playerData = PlayerTagsList[player];
+        Tag playerData = PlayerTagsList[player.SteamID];
         Tags.Api.TagsUpdatedPre(player, playerData);
         playerData.ChatSound = value;
         Tags.Api.TagsUpdatedPost(player, playerData);
     }
 
-    public static bool GetVisibility(this CCSPlayerController player) =>
-        PlayerTagsList[player].Visibility;
+    public static bool GetVisibility(this CCSPlayerController player)
+    {
+        return PlayerTagsList[player.SteamID].Visibility;
+    }
 
     public static void SetVisibility(this CCSPlayerController player, bool value)
     {
-        Tag playerData = PlayerTagsList[player];
+        Tag playerData = PlayerTagsList[player.SteamID];
         Tags.Api.TagsUpdatedPre(player, playerData);
         playerData.Visibility = value;
-        player.SetScoreTag(value ? player.GetAttribute(TagType.ScoreTag) : Config.DefaultTags.ScoreTag);
+        player.SetScoreTag(value ? player.GetAttribute(TagType.ScoreTag) : Instance.Config.Default.ScoreTag);
         Tags.Api.TagsUpdatedPost(player, playerData);
     }
 
@@ -234,8 +234,11 @@ public static partial class TagsLibrary
         }
     }
 
-    public static string ConvertToHtml(this string message, CsTeam team)
+    public static string ConvertToHtml(this string message, CsTeam team, bool htmlmenu)
     {
+        if (!htmlmenu)
+            return message;
+
         string modifiedValue = message.Replace("{TeamColor}", ForTeamHtml(team));
         StringBuilder result = new();
         string[] parts = modifiedValue.Split(['{', '}'], StringSplitOptions.None);
