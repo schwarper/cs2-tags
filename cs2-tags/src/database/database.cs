@@ -114,14 +114,14 @@ public static class Database
 
             // Check if player's permissions have changed and refresh tags if needed
             await RefreshPlayerTagsAsync(player, result);
-            
+
             // Make sure player has tags in the dictionary (uses updated tags from RefreshPlayerTagsAsync if changed)
             if (!PlayerTagsList.ContainsKey(player.SteamID))
             {
-                Tag playerTag = PlayerTagsList.TryGetValue(player.SteamID, out Tag? existingTag) 
-                    ? existingTag 
+                Tag playerTag = PlayerTagsList.TryGetValue(player.SteamID, out Tag? existingTag)
+                    ? existingTag
                     : result;
-                    
+
                 PlayerTagsList[player.SteamID] = playerTag;
                 player.SetScoreTag(playerTag.ScoreTag);
             }
@@ -129,7 +129,7 @@ public static class Database
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading player tags: {ex.Message}");
-            
+
             if (!PlayerTagsList.ContainsKey(player.SteamID))
             {
                 Tag defaultTag = player.GetTag();
@@ -144,7 +144,7 @@ public static class Database
         try
         {
             Tag playerData = player.GetTag();
-            
+
             player.UpdateTag(playerData);
 
             await connection.ExecuteAsync(@"
@@ -215,10 +215,10 @@ public static class Database
         {
             // Get what the player's tag SHOULD be based on current permissions
             Tag currentPermissionTag = player.GetTag();
-            
+
             // Check if the role-based tags don't match what's in the database
             bool needsUpdate = false;
-            
+
             // Check each tag type to see if it needs updating
             if (currentPermissionTag.ScoreTag != dbTag.ScoreTag)
                 needsUpdate = true;
@@ -228,17 +228,17 @@ public static class Database
                 needsUpdate = true;
             if (currentPermissionTag.NameColor != dbTag.NameColor)
                 needsUpdate = true;
-                
+
             if (needsUpdate)
             {
                 currentPermissionTag.Visibility = dbTag.Visibility;
                 currentPermissionTag.ChatSound = dbTag.ChatSound;
-                
+
                 Console.WriteLine($"Updating player {player.PlayerName} tags due to permission change");
-                
+
                 PlayerTagsList[player.SteamID] = currentPermissionTag;
                 player.SetScoreTag(currentPermissionTag.ScoreTag);
-                
+
                 // Update this dumbass in db
                 using DbConnection connection = await ConnectAsync();
                 await connection.ExecuteAsync(@"
