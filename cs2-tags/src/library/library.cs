@@ -37,7 +37,7 @@ public static partial class TagsLibrary
     };
 
     [GeneratedRegex(@"\{.*?\}|\p{C}")]
-    public static partial Regex MyRegex();
+    private static partial Regex MyRegex();
 
     public static string Name(this CsTeam team)
     {
@@ -51,7 +51,7 @@ public static partial class TagsLibrary
 
     public static string ReplaceTags(this string message, CsTeam team)
     {
-        return StringExtensions.ReplaceColorTags(message)
+        return message.ReplaceColorTags()
             .Replace("{TeamColor}", ChatColors.ForTeam(team).ToString());
     }
 
@@ -62,22 +62,38 @@ public static partial class TagsLibrary
 
     public static Tag GetTag(this CCSPlayerController player)
     {
-        return Instance.Config.Tags.FirstOrDefault(tag => player.SteamID.ToString() == tag.Role)?.Clone() ??
-            Instance.Config.Tags.FirstOrDefault(tag => tag.Role?[0] == '#' && AdminManager.PlayerInGroup(player, tag.Role))?.Clone() ??
-            Instance.Config.Tags.FirstOrDefault(tag => tag.Role?[0] == '@' && AdminManager.PlayerHasPermissions(player, tag.Role))?.Clone() ??
-            Instance.Config.Default.Clone();
+        var steamId = player.SteamID.ToString();
+        
+        var steamIdTag = Instance.Config.Tags.FirstOrDefault(tag => steamId == tag.Role)?.Clone();
+        if (steamIdTag != null)
+            return steamIdTag;
+        
+        List<Tag> matchingGroupTags = [.. Instance.Config.Tags
+            .Where(tag => tag.Role != null && tag.Role[0] == '#' && AdminManager.PlayerInGroup(player, tag.Role))
+            .Select(tag => tag.Clone())];
+        
+        if (matchingGroupTags.Count > 0)
+        {
+            return matchingGroupTags[0];
+        }
+        
+        List<Tag> matchingPermissionTags = [.. Instance.Config.Tags
+            .Where(tag => tag.Role != null && tag.Role[0] == '@' && AdminManager.PlayerHasPermissions(player, tag.Role))
+            .Select(tag => tag.Clone())];
+        
+        return matchingPermissionTags.Count > 0 ? matchingPermissionTags[0] : Instance.Config.Default.Clone();
     }
 
     public static List<Tag> GetTags(this CCSPlayerController player)
     {
-        string steamID = player.SteamID.ToString();
+        var steamId = player.SteamID.ToString();
 
         return
         [
             Instance.Config.Default.Clone(),
             .. Instance.Config.Tags
                 .Where(tag =>
-                    tag.Role == steamID ||
+                    tag.Role == steamId ||
                     (tag.Role ?[0] == '#' && AdminManager.PlayerInGroup(player, tag.Role)) ||
                     (tag.Role ?[0] == '@' && AdminManager.PlayerHasPermissions(player, tag.Role))
                 )
@@ -87,7 +103,6 @@ public static partial class TagsLibrary
 
     public static void UpdateTag(this CCSPlayerController player, Tag tag)
     {
-        Tags.Api.TagsUpdatedPre(player, tag);
         PlayerTagsList[player.SteamID] = tag;
         player.SetScoreTag(tag.ScoreTag);
         Tags.Api.TagsUpdatedPost(player, tag);
@@ -105,37 +120,69 @@ public static partial class TagsLibrary
 
     public static void AddAttribute(this CCSPlayerController player, TagType types, TagPrePost prePost, string newValue)
     {
-        Tag playerData = PlayerTagsList[player.SteamID];
-        Tags.Api.TagsUpdatedPre(player, playerData);
+        if (!PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        {
+            playerData = player.GetTag();
+            PlayerTagsList[player.SteamID] = playerData;
+        }
+        
+        try
+        {
+            Tags.Api.TagsUpdatedPre(player, playerData);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in TagsUpdatedPre event: {ex.Message}");
+        }
 
         if ((types & TagType.ScoreTag) != 0)
         {
-            string value = GetPrePostValue(prePost, playerData.ScoreTag, newValue);
+            var value = GetPrePostValue(prePost, playerData.ScoreTag, newValue);
             playerData.ScoreTag = value;
             player.SetScoreTag(value);
         }
         if ((types & TagType.ChatTag) != 0)
         {
-            string value = GetPrePostValue(prePost, playerData.ChatTag, newValue);
+            var value = GetPrePostValue(prePost, playerData.ChatTag, newValue);
             playerData.ChatTag = value;
         }
         if ((types & TagType.NameColor) != 0)
         {
-            string value = GetPrePostValue(prePost, playerData.NameColor, newValue);
+            var value = GetPrePostValue(prePost, playerData.NameColor, newValue);
             playerData.NameColor = value;
         }
         if ((types & TagType.ChatColor) != 0)
         {
-            string value = GetPrePostValue(prePost, playerData.ChatColor, newValue);
+            var value = GetPrePostValue(prePost, playerData.ChatColor, newValue);
             playerData.ChatColor = value;
         }
-        Tags.Api.TagsUpdatedPost(player, playerData);
+        
+        try
+        {
+            Tags.Api.TagsUpdatedPost(player, playerData);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in TagsUpdatedPost event: {ex.Message}");
+        }
     }
 
     public static void SetAttribute(this CCSPlayerController player, TagType types, string newValue)
     {
-        Tag playerData = PlayerTagsList[player.SteamID];
-        Tags.Api.TagsUpdatedPre(player, playerData);
+        if (!PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        {
+            playerData = player.GetTag();
+            PlayerTagsList[player.SteamID] = playerData;
+        }
+        
+        try
+        {
+            Tags.Api.TagsUpdatedPre(player, playerData);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in TagsUpdatedPre event: {ex.Message}");
+        }
 
         if ((types & TagType.ScoreTag) != 0)
         {
@@ -154,12 +201,25 @@ public static partial class TagsLibrary
         {
             playerData.ChatColor = newValue;
         }
-        Tags.Api.TagsUpdatedPost(player, playerData);
+        
+        try
+        {
+            Tags.Api.TagsUpdatedPost(player, playerData);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in TagsUpdatedPost event: {ex.Message}");
+        }
     }
 
     public static string? GetAttribute(this CCSPlayerController player, TagType type)
     {
-        Tag playerData = PlayerTagsList[player.SteamID];
+        if (!PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        {
+            playerData = player.GetTag();
+            PlayerTagsList[player.SteamID] = playerData;
+        }
+        
         return type switch
         {
             TagType.ScoreTag => playerData.ScoreTag,
@@ -172,9 +232,23 @@ public static partial class TagsLibrary
 
     public static void ResetAttribute(this CCSPlayerController player, TagType types)
     {
-        Tag playerData = PlayerTagsList[player.SteamID];
-        Tags.Api.TagsUpdatedPre(player, playerData);
-        Tag defaultTag = GetTag(player);
+        if (!PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        {
+            playerData = player.GetTag();
+            PlayerTagsList[player.SteamID] = playerData;
+            return;
+        }
+        
+        try
+        {
+            Tags.Api.TagsUpdatedPre(player, playerData);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in TagsUpdatedPre event: {ex.Message}");
+        }
+        
+        var defaultTag = GetTag(player);
 
         if ((types & TagType.ScoreTag) != 0)
         {
@@ -194,17 +268,34 @@ public static partial class TagsLibrary
             playerData.ChatColor = defaultTag.ChatColor;
         }
 
-        Tags.Api.TagsUpdatedPost(player, playerData);
+        try
+        {
+            Tags.Api.TagsUpdatedPost(player, playerData);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in TagsUpdatedPost event: {ex.Message}");
+        }
     }
 
     public static bool GetChatSound(this CCSPlayerController player)
     {
-        return PlayerTagsList[player.SteamID].ChatSound;
+        if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+            return playerData.ChatSound;
+        
+        var defaultTag = player.GetTag();
+        PlayerTagsList[player.SteamID] = defaultTag;
+        return defaultTag.ChatSound;
     }
 
-    public static void SetChatSound(this CCSPlayerController player, bool value)
+   public static void SetChatSound(this CCSPlayerController player, bool value)
     {
-        Tag playerData = PlayerTagsList[player.SteamID];
+        if (!PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        {
+            playerData = player.GetTag();
+            PlayerTagsList[player.SteamID] = playerData;
+        }
+        
         Tags.Api.TagsUpdatedPre(player, playerData);
         playerData.ChatSound = value;
         Tags.Api.TagsUpdatedPost(player, playerData);
@@ -212,12 +303,22 @@ public static partial class TagsLibrary
 
     public static bool GetVisibility(this CCSPlayerController player)
     {
-        return PlayerTagsList[player.SteamID].Visibility;
+        if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+            return playerData.Visibility;
+        
+        var defaultTag = player.GetTag();
+        PlayerTagsList[player.SteamID] = defaultTag;
+        return defaultTag.Visibility;
     }
 
     public static void SetVisibility(this CCSPlayerController player, bool value)
     {
-        Tag playerData = PlayerTagsList[player.SteamID];
+        if (!PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        {
+            playerData = player.GetTag();
+            PlayerTagsList[player.SteamID] = playerData;
+        }
+        
         Tags.Api.TagsUpdatedPre(player, playerData);
         playerData.Visibility = value;
         player.SetScoreTag(value ? player.GetAttribute(TagType.ScoreTag) : Instance.Config.Default.ScoreTag);
@@ -239,11 +340,11 @@ public static partial class TagsLibrary
         if (!htmlmenu)
             return message;
 
-        string modifiedValue = message.Replace("{TeamColor}", ForTeamHtml(team));
+        var modifiedValue = message.Replace("{TeamColor}", ForTeamHtml(team));
         StringBuilder result = new();
         string[] parts = modifiedValue.Split(['{', '}'], StringSplitOptions.None);
 
-        for (int i = 0; i < parts.Length; i++)
+        for (var i = 0; i < parts.Length; i++)
         {
             if (i % 2 == 0)
             {
@@ -251,8 +352,8 @@ public static partial class TagsLibrary
             }
             else
             {
-                string fieldName = parts[i];
-                if (HtmlColorList.TryGetValue(fieldName, out string? value))
+                var fieldName = parts[i];
+                if (HtmlColorList.TryGetValue(fieldName, out var value))
                 {
                     result.Append($"<font color='{value}'>");
 

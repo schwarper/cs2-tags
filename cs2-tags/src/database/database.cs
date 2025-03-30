@@ -98,37 +98,72 @@ public static class Database
 
     public static async Task LoadPlayerAsync(CCSPlayerController player)
     {
-        using DbConnection connection = await ConnectAsync();
-
-        Tag? result = (await connection.QueryAsync<Tag>(@"
-            SELECT * FROM tags WHERE SteamID = @SteamID;", new { player.SteamID }
-        )).SingleOrDefault();
-
-        if (result == null)
+        try
         {
-            await InsertNewPlayer(connection, player);
-            return;
-        }
+            using DbConnection connection = await ConnectAsync();
 
-        player.UpdateTag(result);
+            Tag? result = (await connection.QueryAsync<Tag>(@"
+                SELECT * FROM tags WHERE SteamID = @SteamID;", new { player.SteamID }
+            )).SingleOrDefault();
+
+            if (result == null)
+            {
+                await InsertNewPlayer(connection, player);
+                return;
+            }
+
+            // Check if player's permissions have changed and refresh tags if needed
+            await RefreshPlayerTagsAsync(player, result);
+            
+            // Make sure player has tags in the dictionary (uses updated tags from RefreshPlayerTagsAsync if changed)
+            if (!PlayerTagsList.ContainsKey(player.SteamID))
+            {
+                Tag playerTag = PlayerTagsList.TryGetValue(player.SteamID, out Tag? existingTag) 
+                    ? existingTag 
+                    : result;
+                    
+                PlayerTagsList[player.SteamID] = playerTag;
+                player.SetScoreTag(playerTag.ScoreTag);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading player tags: {ex.Message}");
+            
+            if (!PlayerTagsList.ContainsKey(player.SteamID))
+            {
+                Tag defaultTag = player.GetTag();
+                PlayerTagsList[player.SteamID] = defaultTag;
+                player.SetScoreTag(defaultTag.ScoreTag);
+            }
+        }
     }
 
     public static async Task InsertNewPlayer(DbConnection connection, CCSPlayerController player)
     {
-        Tag playerData = player.GetTag();
-        player.UpdateTag(playerData);
-
-        await connection.ExecuteAsync(@"
-            INSERT INTO tags (SteamID, ScoreTag, ChatTag, ChatColor, NameColor, Visibility) 
-            VALUES (@SteamID, @ScoreTag, @ChatTag, @ChatColor, @NameColor, 1);
-        ", new
+        try
         {
-            player.SteamID,
-            playerData.ScoreTag,
-            playerData.ChatTag,
-            playerData.ChatColor,
-            playerData.NameColor
-        });
+            Tag playerData = player.GetTag();
+            
+            player.UpdateTag(playerData);
+
+            await connection.ExecuteAsync(@"
+                INSERT INTO tags (SteamID, ScoreTag, ChatTag, ChatColor, NameColor, Visibility) 
+                VALUES (@SteamID, @ScoreTag, @ChatTag, @ChatColor, @NameColor, @Visibility);
+            ", new
+            {
+                player.SteamID,
+                playerData.ScoreTag,
+                playerData.ChatTag,
+                playerData.ChatColor,
+                playerData.NameColor,
+                playerData.Visibility
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error inserting new player: {ex.Message}");
+        }
     }
 
     public static void SavePlayer(CCSPlayerController player)
@@ -144,26 +179,88 @@ public static class Database
 
     public static async Task SavePlayerAsync(ulong SteamID, Tag playerData)
     {
-        using DbConnection connection = await ConnectAsync();
-
-        await connection.ExecuteAsync(@"
-            UPDATE tags SET 
-                ScoreTag = @ScoreTag,
-                ChatTag = @ChatTag,
-                ChatColor = @ChatColor,
-                NameColor = @NameColor,
-                Visibility = @Visibility
-            WHERE SteamID = @SteamID;
-        ", new
+        try
         {
-            playerData.ScoreTag,
-            playerData.ChatTag,
-            playerData.ChatColor,
-            playerData.NameColor,
-            playerData.Visibility,
-            SteamID
-        });
+            using DbConnection connection = await ConnectAsync();
 
-        PlayerTagsList.Remove(SteamID);
+            await connection.ExecuteAsync(@"
+                UPDATE tags SET 
+                    ScoreTag = @ScoreTag,
+                    ChatTag = @ChatTag,
+                    ChatColor = @ChatColor,
+                    NameColor = @NameColor,
+                    Visibility = @Visibility
+                WHERE SteamID = @SteamID;
+            ", new
+            {
+                playerData.ScoreTag,
+                playerData.ChatTag,
+                playerData.ChatColor,
+                playerData.NameColor,
+                playerData.Visibility,
+                SteamID
+            });
+
+            PlayerTagsList.Remove(SteamID);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving player data: {ex.Message}");
+        }
+    }
+
+    public static async Task RefreshPlayerTagsAsync(CCSPlayerController player, Tag dbTag)
+    {
+        try
+        {
+            // Get what the player's tag SHOULD be based on current permissions
+            Tag currentPermissionTag = player.GetTag();
+            
+            // Check if the role-based tags don't match what's in the database
+            bool needsUpdate = false;
+            
+            // Check each tag type to see if it needs updating
+            if (currentPermissionTag.ScoreTag != dbTag.ScoreTag)
+                needsUpdate = true;
+            if (currentPermissionTag.ChatTag != dbTag.ChatTag)
+                needsUpdate = true;
+            if (currentPermissionTag.ChatColor != dbTag.ChatColor)
+                needsUpdate = true;
+            if (currentPermissionTag.NameColor != dbTag.NameColor)
+                needsUpdate = true;
+                
+            if (needsUpdate)
+            {
+                currentPermissionTag.Visibility = dbTag.Visibility;
+                currentPermissionTag.ChatSound = dbTag.ChatSound;
+                
+                Console.WriteLine($"Updating player {player.PlayerName} tags due to permission change");
+                
+                PlayerTagsList[player.SteamID] = currentPermissionTag;
+                player.SetScoreTag(currentPermissionTag.ScoreTag);
+                
+                // Update this dumbass in db
+                using DbConnection connection = await ConnectAsync();
+                await connection.ExecuteAsync(@"
+                    UPDATE tags SET 
+                        ScoreTag = @ScoreTag,
+                        ChatTag = @ChatTag,
+                        ChatColor = @ChatColor,
+                        NameColor = @NameColor
+                    WHERE SteamID = @SteamID;
+                ", new
+                {
+                    currentPermissionTag.ScoreTag,
+                    currentPermissionTag.ChatTag,
+                    currentPermissionTag.ChatColor,
+                    currentPermissionTag.NameColor,
+                    player.SteamID
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error refreshing player tags: {ex.Message}");
+        }
     }
 }

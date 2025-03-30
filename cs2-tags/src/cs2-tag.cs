@@ -18,7 +18,7 @@ namespace Tags;
 public class Tags : BasePlugin, IPluginConfig<Config>
 {
     public override string ModuleName => "Tags";
-    public override string ModuleVersion => "1.2";
+    public override string ModuleVersion => "1.3";
     public override string ModuleAuthor => "schwarper";
 
     public Config Config { get; set; } = new();
@@ -32,25 +32,28 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         Capabilities.RegisterPluginCapability(ITagApi.Capability, () => Api);
         HookUserMessage(118, OnMessage, HookMode.Pre);
 
-        foreach (string command in Config.Commands.TagsReload)
+        foreach (var command in Config.Commands.TagsReload)
             AddCommand(command, "Tags Reload", Command_Tags_Reload);
 
-        foreach (string command in Config.Commands.Visibility)
+        foreach (var command in Config.Commands.Visibility)
             AddCommand(command, "Visibility", Command_Visibility);
 
-        foreach (string command in Config.Commands.TagsMenu)
+        foreach (var command in Config.Commands.TagsMenu)
             AddCommand(command, "Tags Menu", Command_Tags);
 
         AddCommandListener("css_admins_reload", Command_Admins_Reloads, HookMode.Pre);
 
         if (hotReload)
         {
-            List<CCSPlayerController> players = Utilities.GetPlayers();
-            foreach (CCSPlayerController player in players)
+            var players = Utilities.GetPlayers();
+            foreach (var player in players.Where(player => !player.IsBot))
             {
-                if (player.IsBot)
-                    continue;
-
+                if (!PlayerTagsList.ContainsKey(player.SteamID))
+                {
+                    var defaultTag = player.GetTag();
+                    PlayerTagsList[player.SteamID] = defaultTag;
+                }
+                
                 Database.LoadPlayer(player);
             }
         }
@@ -80,7 +83,7 @@ public class Tags : BasePlugin, IPluginConfig<Config>
                 config.DatabaseConnection.User
             ];
 
-            foreach (string key in keys)
+            foreach (var key in keys)
             {
                 if (string.IsNullOrEmpty(key))
                     throw new Exception($"Database credentials are missing");
@@ -165,10 +168,18 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         if (Utilities.GetPlayerFromIndex(um.ReadInt("entityindex")) is not CCSPlayerController player || player.IsBot)
             return HookResult.Continue;
 
+        if (!PlayerTagsList.TryGetValue(player.SteamID, out var tag))
+        {
+            tag = player.GetTag();
+            PlayerTagsList[player.SteamID] = tag;
+            
+            Database.LoadPlayer(player);
+        }
+
         MessageProcess messageProcess = new()
         {
             Player = player,
-            Tag = !player.GetVisibility() ? Config.Default.Clone() : PlayerTagsList[player.SteamID].Clone(),
+            Tag = !player.GetVisibility() ? Config.Default.Clone() : tag.Clone(),
             Message = um.ReadString("param2").RemoveCurlyBraceContent(),
             PlayerName = um.ReadString("param1"),
             ChatSound = um.ReadBool("chat"),
@@ -178,17 +189,17 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         if (string.IsNullOrEmpty(messageProcess.Message))
             return HookResult.Handled;
 
-        HookResult hookResult = Api.MessageProcessPre(messageProcess);
+        var hookResult = Api.MessageProcessPre(messageProcess);
 
         if (hookResult >= HookResult.Handled)
             return hookResult;
 
-        string deadname = player.PawnIsAlive ? string.Empty : Config.Settings.DeadName;
-        string teamname = messageProcess.TeamMessage ? player.Team.Name() : string.Empty;
+        var deadname = player.PawnIsAlive ? string.Empty : Config.Settings.DeadName;
+        var teamname = messageProcess.TeamMessage ? player.Team.Name() : string.Empty;
 
-        Tag playerData = messageProcess.Tag;
+        var playerData = messageProcess.Tag;
 
-        CsTeam team = player.Team;
+        var team = player.Team;
         messageProcess.PlayerName = FormatMessage(team, deadname, teamname, playerData.ChatTag ?? string.Empty, playerData.NameColor ?? string.Empty, messageProcess.PlayerName);
         messageProcess.Message = FormatMessage(team, playerData.ChatColor ?? string.Empty, messageProcess.Message);
 
