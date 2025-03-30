@@ -18,7 +18,7 @@ namespace Tags;
 public class Tags : BasePlugin, IPluginConfig<Config>
 {
     public override string ModuleName => "Tags";
-    public override string ModuleVersion => "1.2";
+    public override string ModuleVersion => "1.3";
     public override string ModuleAuthor => "schwarper";
 
     public Config Config { get; set; } = new();
@@ -50,6 +50,12 @@ public class Tags : BasePlugin, IPluginConfig<Config>
             {
                 if (player.IsBot)
                     continue;
+
+                if (!PlayerTagsList.ContainsKey(player.SteamID))
+                {
+                    Tag defaultTag = player.GetTag();
+                    PlayerTagsList[player.SteamID] = defaultTag;
+                }
 
                 Database.LoadPlayer(player);
             }
@@ -165,10 +171,18 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         if (Utilities.GetPlayerFromIndex(um.ReadInt("entityindex")) is not CCSPlayerController player || player.IsBot)
             return HookResult.Continue;
 
+        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? tag))
+        {
+            tag = player.GetTag();
+            PlayerTagsList[player.SteamID] = tag;
+
+            Database.LoadPlayer(player);
+        }
+
         MessageProcess messageProcess = new()
         {
             Player = player,
-            Tag = !player.GetVisibility() ? Config.Default.Clone() : PlayerTagsList[player.SteamID].Clone(),
+            Tag = !player.GetVisibility() ? Config.Default.Clone() : tag.Clone(),
             Message = um.ReadString("param2").RemoveCurlyBraceContent(),
             PlayerName = um.ReadString("param1"),
             ChatSound = um.ReadBool("chat"),
