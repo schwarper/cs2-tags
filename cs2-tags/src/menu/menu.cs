@@ -1,6 +1,7 @@
 ﻿using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Admin;
+using CounterStrikeSharp.API.Modules.Entities;
 using CS2MenuManager.API.Enum;
 using CS2MenuManager.API.Interface;
 using CS2MenuManager.API.Menu;
@@ -51,7 +52,7 @@ public static class Menu
         menu.AddItem(Instance.Localizer.ForPlayer(player, "Chat Color"), (p, o) => SubMenuFirst(p, playerData, TagType.ChatColor, o.Text).Display(p, 0));
         menu.AddItem(Instance.Localizer.ForPlayer(player, "Name Color"), (p, o) => SubMenuFirst(p, playerData, TagType.NameColor, o.Text).Display(p, 0));
 
-        if (AdminManager.PlayerHasPermissions(player, "@css/admin"))
+        if (AdminManager.PlayerHasPermissions(new SteamID(player.SteamID), "@css/admin"))
         {
             bool visibility = playerData.Visibility;
             string visibilityText = $"{Instance.Localizer.ForPlayer(player, "Visibility")} [{(visibility ? "✔️" : "❌")}]";
