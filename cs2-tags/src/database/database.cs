@@ -146,7 +146,6 @@ public static class Database
 
     public static async Task LoadPlayerAsync(CCSPlayerController player)
     {
-        Console.WriteLine($"LOAD PLAYER ASYNC");
         try
         {
             using DbConnection connection = await ConnectAsync();
