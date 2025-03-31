@@ -42,30 +42,21 @@ public class Tags : BasePlugin, IPluginConfig<Config>
             AddCommand(command, "Tags Menu", Command_Tags);
 
         AddCommandListener("css_admins_reload", Command_Admins_Reloads, HookMode.Pre);
-
-        if (hotReload)
-        {
-            List<CCSPlayerController> players = Utilities.GetPlayers();
-            foreach (CCSPlayerController player in players)
-            {
-                if (player.IsBot)
-                    continue;
-
-                if (!PlayerTagsList.ContainsKey(player.SteamID))
-                {
-                    Tag defaultTag = player.GetTag();
-                    PlayerTagsList[player.SteamID] = defaultTag;
-                }
-
-                Database.LoadPlayer(player);
-            }
-        }
     }
 
     public override void Unload(bool hotReload)
     {
         UnhookUserMessage(118, OnMessage, HookMode.Pre);
         RemoveCommandListener("css_admins_reload", Command_Admins_Reloads, HookMode.Pre);
+
+        List<CCSPlayerController> players = Utilities.GetPlayers();
+        foreach (CCSPlayerController player in players)
+        {
+            if (player.IsBot)
+                continue;
+
+            Database.SavePlayer(player);
+        }
     }
 
     public void OnConfigParsed(Config config)
@@ -101,6 +92,21 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         config.Settings.TeamNames[CsTeam.Spectator] = config.Settings.SpecName.ReplaceTags(CsTeam.Spectator);
         config.Settings.TeamNames[CsTeam.Terrorist] = config.Settings.TName.ReplaceTags(CsTeam.Terrorist);
         config.Settings.TeamNames[CsTeam.CounterTerrorist] = config.Settings.CTName.ReplaceTags(CsTeam.CounterTerrorist);
+
+        List<CCSPlayerController> players = Utilities.GetPlayers();
+        foreach (CCSPlayerController player in players)
+        {
+            if (player.IsBot)
+                continue;
+
+            if (!PlayerTagsList.ContainsKey(player.SteamID))
+            {
+                Tag defaultTag = player.GetTag();
+                PlayerTagsList[player.SteamID] = defaultTag;
+            }
+
+            Database.LoadPlayer(player);
+        }
     }
 
     public HookResult Command_Admins_Reloads(CCSPlayerController? player, CommandInfo info)
