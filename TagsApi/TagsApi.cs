@@ -53,6 +53,6 @@ public abstract class Tags
     public enum TagPrePost
     {
         Pre,
-        Post,
+        Post
     }
 }
