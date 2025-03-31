@@ -62,31 +62,31 @@ public static partial class TagsLibrary
 
     public static Tag GetTag(this CCSPlayerController player)
     {
-        var steamId = player.SteamID.ToString();
-        
-        var steamIdTag = Instance.Config.Tags.FirstOrDefault(tag => steamId == tag.Role)?.Clone();
+        string steamId = player.SteamID.ToString();
+
+        Tag? steamIdTag = Instance.Config.Tags.FirstOrDefault(tag => steamId == tag.Role)?.Clone();
         if (steamIdTag != null)
             return steamIdTag;
-        
+
         List<Tag> matchingGroupTags = [.. Instance.Config.Tags
             .Where(tag => tag.Role != null && tag.Role[0] == '#' && AdminManager.PlayerInGroup(player, tag.Role))
             .Select(tag => tag.Clone())];
-        
+
         if (matchingGroupTags.Count > 0)
         {
             return matchingGroupTags[0];
         }
-        
+
         List<Tag> matchingPermissionTags = [.. Instance.Config.Tags
             .Where(tag => tag.Role != null && tag.Role[0] == '@' && AdminManager.PlayerHasPermissions(player, tag.Role))
             .Select(tag => tag.Clone())];
-        
+
         return matchingPermissionTags.Count > 0 ? matchingPermissionTags[0] : Instance.Config.Default.Clone();
     }
 
     public static List<Tag> GetTags(this CCSPlayerController player)
     {
-        var steamId = player.SteamID.ToString();
+        string steamId = player.SteamID.ToString();
 
         return
         [
@@ -120,12 +120,12 @@ public static partial class TagsLibrary
 
     public static void AddAttribute(this CCSPlayerController player, TagType types, TagPrePost prePost, string newValue)
     {
-        if (!PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
         {
             playerData = player.GetTag();
             PlayerTagsList[player.SteamID] = playerData;
         }
-        
+
         try
         {
             Tags.Api.TagsUpdatedPre(player, playerData);
@@ -137,26 +137,26 @@ public static partial class TagsLibrary
 
         if ((types & TagType.ScoreTag) != 0)
         {
-            var value = GetPrePostValue(prePost, playerData.ScoreTag, newValue);
+            string value = GetPrePostValue(prePost, playerData.ScoreTag, newValue);
             playerData.ScoreTag = value;
             player.SetScoreTag(value);
         }
         if ((types & TagType.ChatTag) != 0)
         {
-            var value = GetPrePostValue(prePost, playerData.ChatTag, newValue);
+            string value = GetPrePostValue(prePost, playerData.ChatTag, newValue);
             playerData.ChatTag = value;
         }
         if ((types & TagType.NameColor) != 0)
         {
-            var value = GetPrePostValue(prePost, playerData.NameColor, newValue);
+            string value = GetPrePostValue(prePost, playerData.NameColor, newValue);
             playerData.NameColor = value;
         }
         if ((types & TagType.ChatColor) != 0)
         {
-            var value = GetPrePostValue(prePost, playerData.ChatColor, newValue);
+            string value = GetPrePostValue(prePost, playerData.ChatColor, newValue);
             playerData.ChatColor = value;
         }
-        
+
         try
         {
             Tags.Api.TagsUpdatedPost(player, playerData);
@@ -169,12 +169,12 @@ public static partial class TagsLibrary
 
     public static void SetAttribute(this CCSPlayerController player, TagType types, string newValue)
     {
-        if (!PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
         {
             playerData = player.GetTag();
             PlayerTagsList[player.SteamID] = playerData;
         }
-        
+
         try
         {
             Tags.Api.TagsUpdatedPre(player, playerData);
@@ -201,7 +201,7 @@ public static partial class TagsLibrary
         {
             playerData.ChatColor = newValue;
         }
-        
+
         try
         {
             Tags.Api.TagsUpdatedPost(player, playerData);
@@ -214,12 +214,12 @@ public static partial class TagsLibrary
 
     public static string? GetAttribute(this CCSPlayerController player, TagType type)
     {
-        if (!PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
         {
             playerData = player.GetTag();
             PlayerTagsList[player.SteamID] = playerData;
         }
-        
+
         return type switch
         {
             TagType.ScoreTag => playerData.ScoreTag,
@@ -232,13 +232,13 @@ public static partial class TagsLibrary
 
     public static void ResetAttribute(this CCSPlayerController player, TagType types)
     {
-        if (!PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
         {
             playerData = player.GetTag();
             PlayerTagsList[player.SteamID] = playerData;
             return;
         }
-        
+
         try
         {
             Tags.Api.TagsUpdatedPre(player, playerData);
@@ -247,8 +247,8 @@ public static partial class TagsLibrary
         {
             Console.WriteLine($"Error in TagsUpdatedPre event: {ex.Message}");
         }
-        
-        var defaultTag = GetTag(player);
+
+        Tag defaultTag = GetTag(player);
 
         if ((types & TagType.ScoreTag) != 0)
         {
@@ -280,22 +280,22 @@ public static partial class TagsLibrary
 
     public static bool GetChatSound(this CCSPlayerController player)
     {
-        if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        if (PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
             return playerData.ChatSound;
-        
-        var defaultTag = player.GetTag();
+
+        Tag defaultTag = player.GetTag();
         PlayerTagsList[player.SteamID] = defaultTag;
         return defaultTag.ChatSound;
     }
 
-   public static void SetChatSound(this CCSPlayerController player, bool value)
+    public static void SetChatSound(this CCSPlayerController player, bool value)
     {
-        if (!PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
         {
             playerData = player.GetTag();
             PlayerTagsList[player.SteamID] = playerData;
         }
-        
+
         Tags.Api.TagsUpdatedPre(player, playerData);
         playerData.ChatSound = value;
         Tags.Api.TagsUpdatedPost(player, playerData);
@@ -303,22 +303,22 @@ public static partial class TagsLibrary
 
     public static bool GetVisibility(this CCSPlayerController player)
     {
-        if (PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        if (PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
             return playerData.Visibility;
-        
-        var defaultTag = player.GetTag();
+
+        Tag defaultTag = player.GetTag();
         PlayerTagsList[player.SteamID] = defaultTag;
         return defaultTag.Visibility;
     }
 
     public static void SetVisibility(this CCSPlayerController player, bool value)
     {
-        if (!PlayerTagsList.TryGetValue(player.SteamID, out var playerData))
+        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
         {
             playerData = player.GetTag();
             PlayerTagsList[player.SteamID] = playerData;
         }
-        
+
         Tags.Api.TagsUpdatedPre(player, playerData);
         playerData.Visibility = value;
         player.SetScoreTag(value ? player.GetAttribute(TagType.ScoreTag) : Instance.Config.Default.ScoreTag);
@@ -340,11 +340,11 @@ public static partial class TagsLibrary
         if (!htmlmenu)
             return message;
 
-        var modifiedValue = message.Replace("{TeamColor}", ForTeamHtml(team));
+        string modifiedValue = message.Replace("{TeamColor}", ForTeamHtml(team));
         StringBuilder result = new();
         string[] parts = modifiedValue.Split(['{', '}'], StringSplitOptions.None);
 
-        for (var i = 0; i < parts.Length; i++)
+        for (int i = 0; i < parts.Length; i++)
         {
             if (i % 2 == 0)
             {
@@ -352,8 +352,8 @@ public static partial class TagsLibrary
             }
             else
             {
-                var fieldName = parts[i];
-                if (HtmlColorList.TryGetValue(fieldName, out var value))
+                string fieldName = parts[i];
+                if (HtmlColorList.TryGetValue(fieldName, out string? value))
                 {
                     result.Append($"<font color='{value}'>");
 

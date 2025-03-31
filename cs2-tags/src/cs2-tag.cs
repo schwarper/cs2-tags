@@ -32,28 +32,31 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         Capabilities.RegisterPluginCapability(ITagApi.Capability, () => Api);
         HookUserMessage(118, OnMessage, HookMode.Pre);
 
-        foreach (var command in Config.Commands.TagsReload)
+        foreach (string command in Config.Commands.TagsReload)
             AddCommand(command, "Tags Reload", Command_Tags_Reload);
 
-        foreach (var command in Config.Commands.Visibility)
+        foreach (string command in Config.Commands.Visibility)
             AddCommand(command, "Visibility", Command_Visibility);
 
-        foreach (var command in Config.Commands.TagsMenu)
+        foreach (string command in Config.Commands.TagsMenu)
             AddCommand(command, "Tags Menu", Command_Tags);
 
         AddCommandListener("css_admins_reload", Command_Admins_Reloads, HookMode.Pre);
 
         if (hotReload)
         {
-            var players = Utilities.GetPlayers();
-            foreach (var player in players.Where(player => !player.IsBot))
+            List<CCSPlayerController> players = Utilities.GetPlayers();
+            foreach (CCSPlayerController player in players)
             {
+                if (player.IsBot)
+                    continue;
+
                 if (!PlayerTagsList.ContainsKey(player.SteamID))
                 {
-                    var defaultTag = player.GetTag();
+                    Tag defaultTag = player.GetTag();
                     PlayerTagsList[player.SteamID] = defaultTag;
                 }
-                
+
                 Database.LoadPlayer(player);
             }
         }
@@ -83,7 +86,7 @@ public class Tags : BasePlugin, IPluginConfig<Config>
                 config.DatabaseConnection.User
             ];
 
-            foreach (var key in keys)
+            foreach (string key in keys)
             {
                 if (string.IsNullOrEmpty(key))
                     throw new Exception($"Database credentials are missing");
@@ -168,11 +171,11 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         if (Utilities.GetPlayerFromIndex(um.ReadInt("entityindex")) is not CCSPlayerController player || player.IsBot)
             return HookResult.Continue;
 
-        if (!PlayerTagsList.TryGetValue(player.SteamID, out var tag))
+        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? tag))
         {
             tag = player.GetTag();
             PlayerTagsList[player.SteamID] = tag;
-            
+
             Database.LoadPlayer(player);
         }
 
@@ -189,17 +192,17 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         if (string.IsNullOrEmpty(messageProcess.Message))
             return HookResult.Handled;
 
-        var hookResult = Api.MessageProcessPre(messageProcess);
+        HookResult hookResult = Api.MessageProcessPre(messageProcess);
 
         if (hookResult >= HookResult.Handled)
             return hookResult;
 
-        var deadname = player.PawnIsAlive ? string.Empty : Config.Settings.DeadName;
-        var teamname = messageProcess.TeamMessage ? player.Team.Name() : string.Empty;
+        string deadname = player.PawnIsAlive ? string.Empty : Config.Settings.DeadName;
+        string teamname = messageProcess.TeamMessage ? player.Team.Name() : string.Empty;
 
-        var playerData = messageProcess.Tag;
+        Tag playerData = messageProcess.Tag;
 
-        var team = player.Team;
+        CsTeam team = player.Team;
         messageProcess.PlayerName = FormatMessage(team, deadname, teamname, playerData.ChatTag ?? string.Empty, playerData.NameColor ?? string.Empty, messageProcess.PlayerName);
         messageProcess.Message = FormatMessage(team, playerData.ChatColor ?? string.Empty, messageProcess.Message);
 

@@ -109,7 +109,7 @@ public class TagsAPI : ITagApi
             playerData = player.GetTag();
             PlayerTagsList[player.SteamID] = playerData;
         }
-        
+
         if ((types & TagType.ScoreTag) != 0)
         {
             string value = GetPrePostValue(prePost, playerData.ScoreTag, newValue);
