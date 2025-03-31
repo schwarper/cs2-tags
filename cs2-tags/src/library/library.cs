@@ -2,6 +2,7 @@
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Admin;
+using CounterStrikeSharp.API.Modules.Entities;
 using CounterStrikeSharp.API.Modules.Utils;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -68,17 +69,17 @@ public static partial class TagsLibrary
         if (steamIdTag != null)
             return steamIdTag;
 
+        SteamID steamID = new(player.SteamID);
+
         List<Tag> matchingGroupTags = [.. Instance.Config.Tags
-            .Where(tag => tag.Role != null && tag.Role[0] == '#' && AdminManager.PlayerInGroup(player, tag.Role))
+            .Where(tag => tag.Role != null && tag.Role[0] == '#' && AdminManager.PlayerInGroup(steamID, tag.Role))
             .Select(tag => tag.Clone())];
 
         if (matchingGroupTags.Count > 0)
-        {
             return matchingGroupTags[0];
-        }
 
         List<Tag> matchingPermissionTags = [.. Instance.Config.Tags
-            .Where(tag => tag.Role != null && tag.Role[0] == '@' && AdminManager.PlayerHasPermissions(player, tag.Role))
+            .Where(tag => tag.Role != null && tag.Role[0] == '@' && AdminManager.PlayerHasPermissions(steamID, tag.Role))
             .Select(tag => tag.Clone())];
 
         return matchingPermissionTags.Count > 0 ? matchingPermissionTags[0] : Instance.Config.Default.Clone();
@@ -87,6 +88,7 @@ public static partial class TagsLibrary
     public static List<Tag> GetTags(this CCSPlayerController player)
     {
         string steamId = player.SteamID.ToString();
+        SteamID steamID = new(player.SteamID);
 
         return
         [
@@ -94,8 +96,8 @@ public static partial class TagsLibrary
             .. Instance.Config.Tags
                 .Where(tag =>
                     tag.Role == steamId ||
-                    (tag.Role ?[0] == '#' && AdminManager.PlayerInGroup(player, tag.Role)) ||
-                    (tag.Role ?[0] == '@' && AdminManager.PlayerHasPermissions(player, tag.Role))
+                    (tag.Role ?[0] == '#' && AdminManager.PlayerInGroup(steamID, tag.Role)) ||
+                    (tag.Role ?[0] == '@' && AdminManager.PlayerHasPermissions(steamID, tag.Role))
                 )
                 .Select(tag => tag.Clone()),
         ];
