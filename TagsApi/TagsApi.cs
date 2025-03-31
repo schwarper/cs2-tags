@@ -13,6 +13,7 @@ public abstract class Tags
         public string? NameColor { get; set; }
         public bool Visibility { get; set; } = true;
         public bool ChatSound { get; set; } = true;
+        public bool IsExternal { get; set; } = false;
 
         public Tag Clone()
         {
@@ -23,7 +24,8 @@ public abstract class Tags
                 ChatColor = ChatColor,
                 NameColor = NameColor,
                 Visibility = Visibility,
-                ChatSound = ChatSound
+                ChatSound = ChatSound,
+                IsExternal = IsExternal
             };
         }
     }
@@ -51,6 +53,6 @@ public abstract class Tags
     public enum TagPrePost
     {
         Pre,
-        Post
+        Post,
     }
 }

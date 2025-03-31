@@ -68,9 +68,41 @@ public static class Database
                     ChatTag VARCHAR(255),
                     ChatColor VARCHAR(255),
                     NameColor VARCHAR(255),
-                    Visibility BOOLEAN NOT NULL
+                    Visibility BOOLEAN NOT NULL,
+                    IsExternal BOOLEAN NOT NULL DEFAULT FALSE
                 );
             ");
+            
+            try 
+            {
+                await connection.ExecuteAsync(@"
+                    ALTER TABLE tags ADD COLUMN IF NOT EXISTS IsExternal BOOLEAN NOT NULL DEFAULT FALSE;
+                ");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error adding IsExternal column: {ex.Message}");
+                
+                try 
+                {
+                    var columns = await connection.QueryAsync<string>(@"
+                        SELECT COLUMN_NAME 
+                        FROM INFORMATION_SCHEMA.COLUMNS 
+                        WHERE TABLE_NAME = 'tags' AND COLUMN_NAME = 'IsExternal'
+                    ");
+                    
+                    if (!columns.Any())
+                    {
+                        await connection.ExecuteAsync(@"
+                            ALTER TABLE tags ADD COLUMN IsExternal BOOLEAN NOT NULL DEFAULT FALSE;
+                        ");
+                    }
+                }
+                catch (Exception innerEx)
+                {
+                    Console.WriteLine($"Could not add IsExternal column: {innerEx.Message}");
+                }
+            }
         }
         else
         {
@@ -82,9 +114,28 @@ public static class Database
                     ChatTag TEXT,
                     ChatColor TEXT,
                     NameColor TEXT,
-                    Visibility BOOLEAN NOT NULL
+                    Visibility BOOLEAN NOT NULL,
+                    IsExternal BOOLEAN NOT NULL DEFAULT 0
                 );
             ");
+            
+            try 
+            {
+                var columns = await connection.QueryAsync<string>(@"
+                    PRAGMA table_info(tags);
+                ");
+                
+                if (!columns.Any(c => c.Contains("IsExternal")))
+                {
+                    await connection.ExecuteAsync(@"
+                        ALTER TABLE tags ADD COLUMN IsExternal BOOLEAN NOT NULL DEFAULT 0;
+                    ");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Could not add IsExternal column: {ex.Message}");
+            }
         }
     }
 
@@ -145,11 +196,15 @@ public static class Database
         {
             Tag playerData = player.GetTag();
             
-            player.UpdateTag(playerData);
+            // By default, tags from config-based permissions are not external
+            playerData.IsExternal = false;
+            
+            PlayerTagsList[player.SteamID] = playerData;
+            player.SetScoreTag(playerData.ScoreTag);
 
             await connection.ExecuteAsync(@"
-                INSERT INTO tags (SteamID, ScoreTag, ChatTag, ChatColor, NameColor, Visibility) 
-                VALUES (@SteamID, @ScoreTag, @ChatTag, @ChatColor, @NameColor, @Visibility);
+                INSERT INTO tags (SteamID, ScoreTag, ChatTag, ChatColor, NameColor, Visibility, IsExternal) 
+                VALUES (@SteamID, @ScoreTag, @ChatTag, @ChatColor, @NameColor, @Visibility, @IsExternal);
             ", new
             {
                 player.SteamID,
@@ -157,7 +212,8 @@ public static class Database
                 playerData.ChatTag,
                 playerData.ChatColor,
                 playerData.NameColor,
-                playerData.Visibility
+                playerData.Visibility,
+                playerData.IsExternal
             });
         }
         catch (Exception ex)
@@ -189,7 +245,8 @@ public static class Database
                     ChatTag = @ChatTag,
                     ChatColor = @ChatColor,
                     NameColor = @NameColor,
-                    Visibility = @Visibility
+                    Visibility = @Visibility,
+                    IsExternal = @IsExternal
                 WHERE SteamID = @SteamID;
             ", new
             {
@@ -198,6 +255,7 @@ public static class Database
                 playerData.ChatColor,
                 playerData.NameColor,
                 playerData.Visibility,
+                playerData.IsExternal,
                 SteamID
             });
 
@@ -213,6 +271,14 @@ public static class Database
     {
         try
         {
+            // If this is an external tag, don't refresh based on permissions
+            if (dbTag.IsExternal)
+            {
+                PlayerTagsList[player.SteamID] = dbTag;
+                player.SetScoreTag(dbTag.ScoreTag);
+                return;
+            }
+            
             // Get what the player's tag SHOULD be based on current permissions
             Tag currentPermissionTag = player.GetTag();
             
@@ -233,20 +299,21 @@ public static class Database
             {
                 currentPermissionTag.Visibility = dbTag.Visibility;
                 currentPermissionTag.ChatSound = dbTag.ChatSound;
+                currentPermissionTag.IsExternal = false;
                 
                 Console.WriteLine($"Updating player {player.PlayerName} tags due to permission change");
                 
                 PlayerTagsList[player.SteamID] = currentPermissionTag;
                 player.SetScoreTag(currentPermissionTag.ScoreTag);
                 
-                // Update this dumbass in db
                 using DbConnection connection = await ConnectAsync();
                 await connection.ExecuteAsync(@"
                     UPDATE tags SET 
                         ScoreTag = @ScoreTag,
                         ChatTag = @ChatTag,
                         ChatColor = @ChatColor,
-                        NameColor = @NameColor
+                        NameColor = @NameColor,
+                        IsExternal = @IsExternal
                     WHERE SteamID = @SteamID;
                 ", new
                 {
@@ -254,6 +321,7 @@ public static class Database
                     currentPermissionTag.ChatTag,
                     currentPermissionTag.ChatColor,
                     currentPermissionTag.NameColor,
+                    currentPermissionTag.IsExternal,
                     player.SteamID
                 });
             }
