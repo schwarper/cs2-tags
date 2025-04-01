@@ -109,7 +109,7 @@ public static class Database
     {
         SetDatabase(config);
 
-        CSSThread.RunOnMainThread(async () => await CreateDatabaseAsync());
+        Task.Run(CreateDatabaseAsync);
     }
 
     public static async Task CreateDatabaseAsync()
@@ -223,10 +223,7 @@ public static class Database
 
     public static void LoadPlayer(CCSPlayerController player)
     {
-        CSSThread.RunOnMainThread(async () =>
-        {
-            await LoadPlayerAsync(player);
-        });
+        Server.NextFrame(async () => await LoadPlayerAsync(player));
     }
 
     public static async Task LoadPlayerAsync(CCSPlayerController player)
@@ -308,10 +305,7 @@ public static class Database
     {
         if (PlayerTagsList.TryGetValue(player.SteamID, out Tag? tags))
         {
-            CSSThread.RunOnMainThread(async () =>
-            {
-                await SavePlayerAsync(player.SteamID, tags);
-            });
+            Server.NextFrame(async () => await SavePlayerAsync(player.SteamID, tags));
         }
     }
 
