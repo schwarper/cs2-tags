@@ -20,10 +20,66 @@ public static class Database
         UseMySQL = config.DatabaseConnection.MySQL;
 
         string assemblyName = Assembly.GetExecutingAssembly().GetName().Name ?? string.Empty;
-        string dbFile = Path.Combine(Server.GameDirectory, "csgo", "addons", "counterstrikesharp", "configs", "plugins", assemblyName, $"{assemblyName}.db");
-
-        GlobalDatabaseConnectionString = UseMySQL
-            ? new MySqlConnectionStringBuilder
+        
+        if (!UseMySQL)
+        {
+            string configDir = Path.Combine(Server.GameDirectory, "csgo", "addons", "counterstrikesharp", "configs", "plugins", assemblyName);
+            string dbFile = Path.Combine(configDir, $"{assemblyName}.db");
+            
+            try
+            {
+                if (!Directory.Exists(configDir))
+                {
+                    Directory.CreateDirectory(configDir);
+                    Console.WriteLine($"Created directory: {configDir}");
+                }
+                
+                string testFile = Path.Combine(configDir, ".write_test");
+                try
+                {
+                    File.WriteAllText(testFile, "test");
+                    File.Delete(testFile);
+                    Console.WriteLine("Directory is writable");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"WARNING: Directory is not writable: {ex.Message}");
+                }
+                
+                if (File.Exists(dbFile))
+                {
+                    try
+                    {
+                        FileStream fs = File.Open(dbFile, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                        fs.Close();
+                        Console.WriteLine("Database file is writable");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"WARNING: Database file is not writable: {ex.Message}");
+                        
+                        try
+                        {
+                            File.SetAttributes(dbFile, File.GetAttributes(dbFile) & ~FileAttributes.ReadOnly);
+                            Console.WriteLine("Attempted to make database file writable");
+                        }
+                        catch (Exception permEx)
+                        {
+                            Console.WriteLine($"Failed to update file permissions: {permEx.Message}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error checking/creating database directory: {ex.Message}");
+            }
+            
+            GlobalDatabaseConnectionString = $"Data Source={dbFile}";
+        }
+        else
+        {
+            GlobalDatabaseConnectionString = new MySqlConnectionStringBuilder
             {
                 Server = config.DatabaseConnection.Host,
                 Database = config.DatabaseConnection.Name,
@@ -35,8 +91,10 @@ public static class Database
                 MaximumPoolSize = 640,
                 ConnectionIdleTimeout = 30,
                 AllowZeroDateTime = true
-            }.ConnectionString
-            : $"Data Source={dbFile}";
+            }.ConnectionString;
+        }
+        
+        Console.WriteLine($"Database initialized: {(UseMySQL ? "MySQL" : "SQLite")}");
     }
 
     public static async Task<DbConnection> ConnectAsync()
@@ -51,49 +109,121 @@ public static class Database
     {
         SetDatabase(config);
 
-        CSSThread.RunOnMainThread(async () => await CreateDatabaseAsync());
+        Task.Run(CreateDatabaseAsync);
     }
 
     public static async Task CreateDatabaseAsync()
     {
-        using DbConnection connection = await ConnectAsync();
+        try
+        {
+            using DbConnection connection = await ConnectAsync();
 
-        if (UseMySQL)
-        {
-            await connection.ExecuteAsync(@"
-                CREATE TABLE IF NOT EXISTS tags (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    SteamID BIGINT UNSIGNED NOT NULL,
-                    ScoreTag VARCHAR(255),
-                    ChatTag VARCHAR(255),
-                    ChatColor VARCHAR(255),
-                    NameColor VARCHAR(255),
-                    Visibility BOOLEAN NOT NULL
-                );
-            ");
+            if (UseMySQL)
+            {
+                await connection.ExecuteAsync(@"
+                    CREATE TABLE IF NOT EXISTS tags (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        SteamID BIGINT UNSIGNED NOT NULL,
+                        ScoreTag VARCHAR(255),
+                        ChatTag VARCHAR(255),
+                        ChatColor VARCHAR(255),
+                        NameColor VARCHAR(255),
+                        Visibility BOOLEAN NOT NULL DEFAULT TRUE
+                    );
+                ");
+                
+                bool columnExists = false;
+                try 
+                {
+                    var columns = await connection.QueryAsync<string>(@"
+                        SELECT COLUMN_NAME 
+                        FROM INFORMATION_SCHEMA.COLUMNS 
+                        WHERE TABLE_NAME = 'tags' AND COLUMN_NAME = 'IsExternal'
+                    ");
+                    
+                    columnExists = columns.Any();
+                    Console.WriteLine($"Checking for IsExternal column: {(columnExists ? "exists" : "does not exist")}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error checking for IsExternal column: {ex.Message}");
+                }
+                
+                if (!columnExists)
+                {
+                    try
+                    {
+                        await connection.ExecuteAsync(@"
+                            ALTER TABLE tags ADD COLUMN IsExternal BOOLEAN NOT NULL DEFAULT FALSE
+                        ");
+                        Console.WriteLine("Added IsExternal column to tags table.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error adding IsExternal column: {ex.Message}");
+                    }
+                }
+            }
+            else
+            {
+                await connection.ExecuteAsync(@"
+                    CREATE TABLE IF NOT EXISTS tags (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        SteamID BIGINT NOT NULL,
+                        ScoreTag TEXT,
+                        ChatTag TEXT,
+                        ChatColor TEXT,
+                        NameColor TEXT,
+                        Visibility BOOLEAN NOT NULL DEFAULT 1
+                    );
+                ");
+                
+                bool columnExists = false;
+                try 
+                {
+                    var tableInfo = await connection.QueryAsync<dynamic>("PRAGMA table_info(tags)");
+                    
+                    foreach (var column in tableInfo)
+                    {
+                        string name = column.name?.ToString() ?? "";
+                        if (name.Equals("IsExternal", StringComparison.OrdinalIgnoreCase))
+                        {
+                            columnExists = true;
+                            break;
+                        }
+                    }
+                    Console.WriteLine($"Checking for SQLite IsExternal column: {(columnExists ? "exists" : "does not exist")}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error checking SQLite column existence: {ex.Message}");
+                }
+                
+                if (!columnExists)
+                {
+                    try
+                    {
+                        await connection.ExecuteAsync(@"
+                            ALTER TABLE tags ADD COLUMN IsExternal BOOLEAN NOT NULL DEFAULT 0
+                        ");
+                        Console.WriteLine("Added IsExternal column to SQLite tags table.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error adding SQLite IsExternal column: {ex.Message}");
+                    }
+                }
+            }
         }
-        else
+        catch (Exception ex)
         {
-            await connection.ExecuteAsync(@"
-                CREATE TABLE IF NOT EXISTS tags (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    SteamID BIGINT NOT NULL,
-                    ScoreTag TEXT,
-                    ChatTag TEXT,
-                    ChatColor TEXT,
-                    NameColor TEXT,
-                    Visibility BOOLEAN NOT NULL
-                );
-            ");
+            Console.WriteLine($"Database initialization error: {ex.Message}");
         }
     }
 
     public static void LoadPlayer(CCSPlayerController player)
     {
-        CSSThread.RunOnMainThread(async () =>
-        {
-            await LoadPlayerAsync(player);
-        });
+        Server.NextFrame(async () => await LoadPlayerAsync(player));
     }
 
     public static async Task LoadPlayerAsync(CCSPlayerController player)
@@ -144,12 +274,16 @@ public static class Database
         try
         {
             Tag playerData = player.GetTag();
-
-            player.UpdateTag(playerData);
+            
+            // By default, tags from config-based permissions are not external
+            playerData.IsExternal = false;
+            
+            PlayerTagsList[player.SteamID] = playerData;
+            player.SetScoreTag(playerData.ScoreTag);
 
             await connection.ExecuteAsync(@"
-                INSERT INTO tags (SteamID, ScoreTag, ChatTag, ChatColor, NameColor, Visibility) 
-                VALUES (@SteamID, @ScoreTag, @ChatTag, @ChatColor, @NameColor, @Visibility);
+                INSERT INTO tags (SteamID, ScoreTag, ChatTag, ChatColor, NameColor, Visibility, IsExternal) 
+                VALUES (@SteamID, @ScoreTag, @ChatTag, @ChatColor, @NameColor, @Visibility, @IsExternal);
             ", new
             {
                 player.SteamID,
@@ -157,7 +291,8 @@ public static class Database
                 playerData.ChatTag,
                 playerData.ChatColor,
                 playerData.NameColor,
-                playerData.Visibility
+                playerData.Visibility,
+                playerData.IsExternal
             });
         }
         catch (Exception ex)
@@ -170,10 +305,7 @@ public static class Database
     {
         if (PlayerTagsList.TryGetValue(player.SteamID, out Tag? tags))
         {
-            CSSThread.RunOnMainThread(async () =>
-            {
-                await SavePlayerAsync(player.SteamID, tags);
-            });
+            Server.NextFrame(async () => await SavePlayerAsync(player.SteamID, tags));
         }
     }
 
@@ -189,7 +321,8 @@ public static class Database
                     ChatTag = @ChatTag,
                     ChatColor = @ChatColor,
                     NameColor = @NameColor,
-                    Visibility = @Visibility
+                    Visibility = @Visibility,
+                    IsExternal = @IsExternal
                 WHERE SteamID = @SteamID;
             ", new
             {
@@ -198,6 +331,7 @@ public static class Database
                 playerData.ChatColor,
                 playerData.NameColor,
                 playerData.Visibility,
+                playerData.IsExternal,
                 SteamID
             });
 
@@ -213,6 +347,14 @@ public static class Database
     {
         try
         {
+            // If this is an external tag, don't refresh based on permissions
+            if (dbTag.IsExternal)
+            {
+                PlayerTagsList[player.SteamID] = dbTag;
+                player.SetScoreTag(dbTag.ScoreTag);
+                return;
+            }
+            
             // Get what the player's tag SHOULD be based on current permissions
             Tag currentPermissionTag = player.GetTag();
 
@@ -233,20 +375,21 @@ public static class Database
             {
                 currentPermissionTag.Visibility = dbTag.Visibility;
                 currentPermissionTag.ChatSound = dbTag.ChatSound;
-
+                currentPermissionTag.IsExternal = false;
+                
                 Console.WriteLine($"Updating player {player.PlayerName} tags due to permission change");
 
                 PlayerTagsList[player.SteamID] = currentPermissionTag;
                 player.SetScoreTag(currentPermissionTag.ScoreTag);
-
-                // Update this dumbass in db
+                
                 using DbConnection connection = await ConnectAsync();
                 await connection.ExecuteAsync(@"
                     UPDATE tags SET 
                         ScoreTag = @ScoreTag,
                         ChatTag = @ChatTag,
                         ChatColor = @ChatColor,
-                        NameColor = @NameColor
+                        NameColor = @NameColor,
+                        IsExternal = @IsExternal
                     WHERE SteamID = @SteamID;
                 ", new
                 {
@@ -254,6 +397,7 @@ public static class Database
                     currentPermissionTag.ChatTag,
                     currentPermissionTag.ChatColor,
                     currentPermissionTag.NameColor,
+                    currentPermissionTag.IsExternal,
                     player.SteamID
                 });
             }
