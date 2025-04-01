@@ -20,10 +20,66 @@ public static class Database
         UseMySQL = config.DatabaseConnection.MySQL;
 
         string assemblyName = Assembly.GetExecutingAssembly().GetName().Name ?? string.Empty;
-        string dbFile = Path.Combine(Server.GameDirectory, "csgo", "addons", "counterstrikesharp", "configs", "plugins", assemblyName, $"{assemblyName}.db");
-
-        GlobalDatabaseConnectionString = UseMySQL
-            ? new MySqlConnectionStringBuilder
+        
+        if (!UseMySQL)
+        {
+            string configDir = Path.Combine(Server.GameDirectory, "csgo", "addons", "counterstrikesharp", "configs", "plugins", assemblyName);
+            string dbFile = Path.Combine(configDir, $"{assemblyName}.db");
+            
+            try
+            {
+                if (!Directory.Exists(configDir))
+                {
+                    Directory.CreateDirectory(configDir);
+                    Console.WriteLine($"Created directory: {configDir}");
+                }
+                
+                string testFile = Path.Combine(configDir, ".write_test");
+                try
+                {
+                    File.WriteAllText(testFile, "test");
+                    File.Delete(testFile);
+                    Console.WriteLine("Directory is writable");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"WARNING: Directory is not writable: {ex.Message}");
+                }
+                
+                if (File.Exists(dbFile))
+                {
+                    try
+                    {
+                        FileStream fs = File.Open(dbFile, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                        fs.Close();
+                        Console.WriteLine("Database file is writable");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"WARNING: Database file is not writable: {ex.Message}");
+                        
+                        try
+                        {
+                            File.SetAttributes(dbFile, File.GetAttributes(dbFile) & ~FileAttributes.ReadOnly);
+                            Console.WriteLine("Attempted to make database file writable");
+                        }
+                        catch (Exception permEx)
+                        {
+                            Console.WriteLine($"Failed to update file permissions: {permEx.Message}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error checking/creating database directory: {ex.Message}");
+            }
+            
+            GlobalDatabaseConnectionString = $"Data Source={dbFile}";
+        }
+        else
+        {
+            GlobalDatabaseConnectionString = new MySqlConnectionStringBuilder
             {
                 Server = config.DatabaseConnection.Host,
                 Database = config.DatabaseConnection.Name,
@@ -35,8 +91,10 @@ public static class Database
                 MaximumPoolSize = 640,
                 ConnectionIdleTimeout = 30,
                 AllowZeroDateTime = true
-            }.ConnectionString
-            : $"Data Source={dbFile}";
+            }.ConnectionString;
+        }
+        
+        Console.WriteLine($"Database initialized: {(UseMySQL ? "MySQL" : "SQLite")}");
     }
 
     public static async Task<DbConnection> ConnectAsync()
@@ -56,33 +114,25 @@ public static class Database
 
     public static async Task CreateDatabaseAsync()
     {
-        using DbConnection connection = await ConnectAsync();
-
-        if (UseMySQL)
+        try
         {
-            await connection.ExecuteAsync(@"
-                CREATE TABLE IF NOT EXISTS tags (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    SteamID BIGINT UNSIGNED NOT NULL,
-                    ScoreTag VARCHAR(255),
-                    ChatTag VARCHAR(255),
-                    ChatColor VARCHAR(255),
-                    NameColor VARCHAR(255),
-                    Visibility BOOLEAN NOT NULL,
-                    IsExternal BOOLEAN NOT NULL DEFAULT FALSE
-                );
-            ");
-            
-            try 
+            using DbConnection connection = await ConnectAsync();
+
+            if (UseMySQL)
             {
                 await connection.ExecuteAsync(@"
-                    ALTER TABLE tags ADD COLUMN IF NOT EXISTS IsExternal BOOLEAN NOT NULL DEFAULT FALSE;
+                    CREATE TABLE IF NOT EXISTS tags (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        SteamID BIGINT UNSIGNED NOT NULL,
+                        ScoreTag VARCHAR(255),
+                        ChatTag VARCHAR(255),
+                        ChatColor VARCHAR(255),
+                        NameColor VARCHAR(255),
+                        Visibility BOOLEAN NOT NULL DEFAULT TRUE
+                    );
                 ");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error adding IsExternal column: {ex.Message}");
                 
+                bool columnExists = false;
                 try 
                 {
                     var columns = await connection.QueryAsync<string>(@"
@@ -91,51 +141,83 @@ public static class Database
                         WHERE TABLE_NAME = 'tags' AND COLUMN_NAME = 'IsExternal'
                     ");
                     
-                    if (!columns.Any())
+                    columnExists = columns.Any();
+                    Console.WriteLine($"Checking for IsExternal column: {(columnExists ? "exists" : "does not exist")}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error checking for IsExternal column: {ex.Message}");
+                }
+                
+                if (!columnExists)
+                {
+                    try
                     {
                         await connection.ExecuteAsync(@"
-                            ALTER TABLE tags ADD COLUMN IsExternal BOOLEAN NOT NULL DEFAULT FALSE;
+                            ALTER TABLE tags ADD COLUMN IsExternal BOOLEAN NOT NULL DEFAULT FALSE
                         ");
+                        Console.WriteLine("Added IsExternal column to tags table.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error adding IsExternal column: {ex.Message}");
                     }
                 }
-                catch (Exception innerEx)
+            }
+            else
+            {
+                await connection.ExecuteAsync(@"
+                    CREATE TABLE IF NOT EXISTS tags (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        SteamID BIGINT NOT NULL,
+                        ScoreTag TEXT,
+                        ChatTag TEXT,
+                        ChatColor TEXT,
+                        NameColor TEXT,
+                        Visibility BOOLEAN NOT NULL DEFAULT 1
+                    );
+                ");
+                
+                bool columnExists = false;
+                try 
                 {
-                    Console.WriteLine($"Could not add IsExternal column: {innerEx.Message}");
+                    var tableInfo = await connection.QueryAsync<dynamic>("PRAGMA table_info(tags)");
+                    
+                    foreach (var column in tableInfo)
+                    {
+                        string name = column.name?.ToString() ?? "";
+                        if (name.Equals("IsExternal", StringComparison.OrdinalIgnoreCase))
+                        {
+                            columnExists = true;
+                            break;
+                        }
+                    }
+                    Console.WriteLine($"Checking for SQLite IsExternal column: {(columnExists ? "exists" : "does not exist")}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error checking SQLite column existence: {ex.Message}");
+                }
+                
+                if (!columnExists)
+                {
+                    try
+                    {
+                        await connection.ExecuteAsync(@"
+                            ALTER TABLE tags ADD COLUMN IsExternal BOOLEAN NOT NULL DEFAULT 0
+                        ");
+                        Console.WriteLine("Added IsExternal column to SQLite tags table.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error adding SQLite IsExternal column: {ex.Message}");
+                    }
                 }
             }
         }
-        else
+        catch (Exception ex)
         {
-            await connection.ExecuteAsync(@"
-                CREATE TABLE IF NOT EXISTS tags (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    SteamID BIGINT NOT NULL,
-                    ScoreTag TEXT,
-                    ChatTag TEXT,
-                    ChatColor TEXT,
-                    NameColor TEXT,
-                    Visibility BOOLEAN NOT NULL,
-                    IsExternal BOOLEAN NOT NULL DEFAULT 0
-                );
-            ");
-            
-            try 
-            {
-                var columns = await connection.QueryAsync<string>(@"
-                    PRAGMA table_info(tags);
-                ");
-                
-                if (!columns.Any(c => c.Contains("IsExternal")))
-                {
-                    await connection.ExecuteAsync(@"
-                        ALTER TABLE tags ADD COLUMN IsExternal BOOLEAN NOT NULL DEFAULT 0;
-                    ");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Could not add IsExternal column: {ex.Message}");
-            }
+            Console.WriteLine($"Database initialization error: {ex.Message}");
         }
     }
 
