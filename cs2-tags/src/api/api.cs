@@ -264,4 +264,86 @@ public class TagsAPI : ITagApi
         Instance.Config.Reload();
         UpdateConfig(Instance.Config);
     }
+
+    public void SetExternalTag(CCSPlayerController player, TagType types, string newValue, bool persistent = true)
+    {
+        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
+        {
+            playerData = player.GetTag();
+            PlayerTagsList[player.SteamID] = playerData;
+        }
+        
+        playerData.IsExternal = true;
+        
+        if ((types & TagType.ScoreTag) != 0)
+        {
+            playerData.ScoreTag = newValue;
+            player.SetScoreTag(newValue);
+        }
+        if ((types & TagType.ChatTag) != 0)
+        {
+            playerData.ChatTag = newValue;
+        }
+        if ((types & TagType.NameColor) != 0)
+        {
+            playerData.NameColor = newValue;
+        }
+        if ((types & TagType.ChatColor) != 0)
+        {
+            playerData.ChatColor = newValue;
+        }
+        
+        if (persistent)
+        {
+            Database.SavePlayer(player);
+        }
+    }
+
+    public void SetPlayerTagExternal(CCSPlayerController player, bool isExternal)
+    {
+        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
+        {
+            playerData = player.GetTag();
+            PlayerTagsList[player.SteamID] = playerData;
+        }
+        
+        playerData.IsExternal = isExternal;
+        
+        Database.SavePlayer(player);
+    }
+
+    public bool IsPlayerTagExternal(CCSPlayerController player)
+    {
+        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
+        {
+            return false;
+        }
+        
+        return playerData.IsExternal;
+    }
+
+    public void ClearExternalTag(CCSPlayerController player, bool resetToDefaultPermission = true)
+    {
+        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
+        {
+            playerData = player.GetTag();
+            PlayerTagsList[player.SteamID] = playerData;
+        }
+        
+        playerData.IsExternal = false;
+        
+        if (resetToDefaultPermission)
+        {
+            Tag permissionTag = player.GetTag();
+            
+            permissionTag.Visibility = playerData.Visibility;
+            permissionTag.ChatSound = playerData.ChatSound;
+            permissionTag.IsExternal = false;
+            
+            PlayerTagsList[player.SteamID] = permissionTag;
+            player.SetScoreTag(permissionTag.ScoreTag);
+        }
+        
+        Database.SavePlayer(player);
+    }
 }
