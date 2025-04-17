@@ -59,9 +59,13 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         }
     }
 
+    public void OnMapStart(string mapName)
+    {
+        UpdateConfig(Config);
+    }
+
     public void OnConfigParsed(Config config)
     {
-        UpdateConfig(config);
         Config = config;
     }
 
