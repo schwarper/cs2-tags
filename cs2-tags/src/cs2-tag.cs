@@ -42,6 +42,7 @@ public class Tags : BasePlugin, IPluginConfig<Config>
             AddCommand(command, "Tags Menu", Command_Tags);
 
         AddCommandListener("css_admins_reload", Command_Admins_Reloads, HookMode.Pre);
+        UpdateConfig(Config, hotReload);
     }
 
     public override void Unload(bool hotReload)
@@ -59,17 +60,12 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         }
     }
 
-    public void OnMapStart(string mapName)
-    {
-        UpdateConfig(Config);
-    }
-
     public void OnConfigParsed(Config config)
     {
         Config = config;
     }
 
-    public static void UpdateConfig(Config config)
+    public static void UpdateConfig(Config config, bool hotReload)
     {
         if (config.DatabaseConnection.MySQL)
         {
@@ -97,26 +93,29 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         config.Settings.TeamNames[CsTeam.Terrorist] = config.Settings.TName.ReplaceTags(CsTeam.Terrorist);
         config.Settings.TeamNames[CsTeam.CounterTerrorist] = config.Settings.CTName.ReplaceTags(CsTeam.CounterTerrorist);
 
-        List<CCSPlayerController> players = Utilities.GetPlayers();
-        foreach (CCSPlayerController player in players)
+        if (hotReload)
         {
-            if (player.IsBot)
-                continue;
-
-            if (!PlayerTagsList.ContainsKey(player.SteamID))
+            List<CCSPlayerController> players = Utilities.GetPlayers();
+            foreach (CCSPlayerController player in players)
             {
-                Tag defaultTag = player.GetTag();
-                PlayerTagsList[player.SteamID] = defaultTag;
-            }
+                if (player.IsBot)
+                    continue;
 
-            Database.LoadPlayer(player);
+                if (!PlayerTagsList.ContainsKey(player.SteamID))
+                {
+                    Tag defaultTag = player.GetTag();
+                    PlayerTagsList[player.SteamID] = defaultTag;
+                }
+
+                Database.LoadPlayer(player);
+            }
         }
     }
 
     public HookResult Command_Admins_Reloads(CCSPlayerController? player, CommandInfo info)
     {
         Config.Reload();
-        UpdateConfig(Config);
+        UpdateConfig(Config, true);
         return HookResult.Continue;
     }
 
@@ -124,7 +123,7 @@ public class Tags : BasePlugin, IPluginConfig<Config>
     public void Command_Tags_Reload(CCSPlayerController? player, CommandInfo info)
     {
         Config.Reload();
-        UpdateConfig(Config);
+        UpdateConfig(Config, true);
     }
 
     [RequiresPermissions("@css/admin")]
