@@ -262,7 +262,7 @@ public class TagsAPI : ITagApi
     public void ReloadTags()
     {
         Instance.Config.Reload();
-        UpdateConfig(Instance.Config);
+        UpdateConfig(Instance.Config, true);
     }
 
     public void SetExternalTag(CCSPlayerController player, TagType types, string newValue, bool persistent = true)
