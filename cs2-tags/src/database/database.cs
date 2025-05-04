@@ -305,7 +305,8 @@ public static class Database
     {
         if (PlayerTagsList.TryGetValue(player.SteamID, out Tag? tags))
         {
-            Server.NextFrame(async () => await SavePlayerAsync(player.SteamID, tags));
+            var steamid = player.SteamID;
+            Server.NextFrame(async () => await SavePlayerAsync(steamid, tags));
         }
     }
 
