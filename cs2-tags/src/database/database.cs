@@ -1,4 +1,4 @@
-﻿using CounterStrikeSharp.API;
+using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using Dapper;
 using Microsoft.Data.Sqlite;
@@ -223,62 +223,89 @@ public static class Database
 
     public static void LoadPlayer(CCSPlayerController player)
     {
-        Server.NextFrame(async () => await LoadPlayerAsync(player));
+        if (player == null || !player.IsValid)
+        {
+            Console.WriteLine("Attempted to load an invalid player");
+            return;
+        }
+        
+        try
+        {
+            ulong steamId = player.SteamID;
+            Server.NextFrame(async () => await LoadPlayerAsync(steamId, player));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error preparing to load player: {ex.Message}");
+        }
     }
 
-    public static async Task LoadPlayerAsync(CCSPlayerController player)
+    public static async Task LoadPlayerAsync(ulong steamId, CCSPlayerController player)
     {
+        if (player == null || !player.IsValid)
+        {
+            Console.WriteLine($"Player became invalid during LoadPlayerAsync (SteamID: {steamId})");
+            return;
+        }
+        
         try
         {
             using DbConnection connection = await ConnectAsync();
 
             Tag? result = (await connection.QueryAsync<Tag>(@"
-                SELECT * FROM tags WHERE SteamID = @SteamID;", new { player.SteamID }
+                SELECT * FROM tags WHERE SteamID = @SteamID;", new { SteamID = steamId }
             )).SingleOrDefault();
 
             if (result == null)
             {
-                await InsertNewPlayer(connection, player);
+                await InsertNewPlayer(connection, steamId, player);
                 return;
             }
 
-            // Check if player's permissions have changed and refresh tags if needed
-            await RefreshPlayerTagsAsync(player, result);
+            await RefreshPlayerTagsAsync(steamId, player, result);
 
-            // Make sure player has tags in the dictionary (uses updated tags from RefreshPlayerTagsAsync if changed)
-            if (!PlayerTagsList.ContainsKey(player.SteamID))
+            if (!PlayerTagsList.ContainsKey(steamId))
             {
-                Tag playerTag = PlayerTagsList.TryGetValue(player.SteamID, out Tag? existingTag)
+                Tag playerTag = PlayerTagsList.TryGetValue(steamId, out Tag? existingTag)
                     ? existingTag
                     : result;
 
-                PlayerTagsList[player.SteamID] = playerTag;
+                PlayerTagsList[steamId] = playerTag;
                 player.SetScoreTag(playerTag.ScoreTag);
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error loading player tags: {ex.Message}");
+            Console.WriteLine($"Error loading player tags (SteamID: {steamId}): {ex.Message}");
 
-            if (!PlayerTagsList.ContainsKey(player.SteamID))
+            if (!PlayerTagsList.ContainsKey(steamId))
             {
-                Tag defaultTag = player.GetTag();
-                PlayerTagsList[player.SteamID] = defaultTag;
-                player.SetScoreTag(defaultTag.ScoreTag);
+                if (player != null && player.IsValid)
+                {
+                    Tag defaultTag = player.GetTag();
+                    PlayerTagsList[steamId] = defaultTag;
+                    player.SetScoreTag(defaultTag.ScoreTag);
+                }
             }
         }
     }
 
-    public static async Task InsertNewPlayer(DbConnection connection, CCSPlayerController player)
+    public static async Task InsertNewPlayer(DbConnection connection, ulong steamId, CCSPlayerController player)
     {
         try
         {
+            // Check player validity again
+            if (player == null || !player.IsValid)
+            {
+                Console.WriteLine($"Player became invalid during InsertNewPlayer (SteamID: {steamId})");
+                return;
+            }
+            
             Tag playerData = player.GetTag();
             
-            // By default, tags from config-based permissions are not external
             playerData.IsExternal = false;
             
-            PlayerTagsList[player.SteamID] = playerData;
+            PlayerTagsList[steamId] = playerData;
             player.SetScoreTag(playerData.ScoreTag);
 
             await connection.ExecuteAsync(@"
@@ -286,7 +313,7 @@ public static class Database
                 VALUES (@SteamID, @ScoreTag, @ChatTag, @ChatColor, @NameColor, @Visibility, @IsExternal);
             ", new
             {
-                player.SteamID,
+                SteamID = steamId,
                 playerData.ScoreTag,
                 playerData.ChatTag,
                 playerData.ChatColor,
@@ -297,20 +324,45 @@ public static class Database
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error inserting new player: {ex.Message}");
+            Console.WriteLine($"Error inserting new player (SteamID: {steamId}): {ex.Message}");
         }
     }
 
     public static void SavePlayer(CCSPlayerController player)
     {
-        if (PlayerTagsList.TryGetValue(player.SteamID, out Tag? tags))
+        if (player == null || !player.IsValid)
         {
-            var steamid = player.SteamID;
-            Server.NextFrame(async () => await SavePlayerAsync(steamid, tags));
+            Console.WriteLine("Attempted to save an invalid player");
+            return;
+        }
+        
+        try 
+        {
+            ulong steamId = player.SteamID;
+            
+            if (PlayerTagsList.TryGetValue(steamId, out Tag? tags))
+            {
+                Tag tagsCopy = new()
+                {
+                    ScoreTag = tags.ScoreTag,
+                    ChatTag = tags.ChatTag,
+                    ChatColor = tags.ChatColor,
+                    NameColor = tags.NameColor,
+                    Visibility = tags.Visibility,
+                    ChatSound = tags.ChatSound,
+                    IsExternal = tags.IsExternal
+                };
+                
+                Server.NextFrame(async () => await SavePlayerAsync(steamId, tagsCopy));
+            }
+        }
+        catch (Exception ex) 
+        {
+            Console.WriteLine($"Error preparing to save player: {ex.Message}");
         }
     }
 
-    public static async Task SavePlayerAsync(ulong SteamID, Tag playerData)
+    public static async Task SavePlayerAsync(ulong steamId, Tag playerData)
     {
         try
         {
@@ -333,36 +385,38 @@ public static class Database
                 playerData.NameColor,
                 playerData.Visibility,
                 playerData.IsExternal,
-                SteamID
+                SteamID = steamId
             });
 
-            PlayerTagsList.Remove(SteamID);
+            PlayerTagsList.Remove(steamId);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error saving player data: {ex.Message}");
+            Console.WriteLine($"Error saving player data (SteamID: {steamId}): {ex.Message}");
         }
     }
 
-    public static async Task RefreshPlayerTagsAsync(CCSPlayerController player, Tag dbTag)
+    public static async Task RefreshPlayerTagsAsync(ulong steamId, CCSPlayerController player, Tag dbTag)
     {
+        if (player == null || !player.IsValid)
+        {
+            Console.WriteLine($"Player became invalid during RefreshPlayerTagsAsync (SteamID: {steamId})");
+            return;
+        }
+        
         try
         {
-            // If this is an external tag, don't refresh based on permissions
             if (dbTag.IsExternal)
             {
-                PlayerTagsList[player.SteamID] = dbTag;
+                PlayerTagsList[steamId] = dbTag;
                 player.SetScoreTag(dbTag.ScoreTag);
                 return;
             }
             
-            // Get what the player's tag SHOULD be based on current permissions
             Tag currentPermissionTag = player.GetTag();
 
-            // Check if the role-based tags don't match what's in the database
             bool needsUpdate = false;
 
-            // Check each tag type to see if it needs updating
             if (currentPermissionTag.ScoreTag != dbTag.ScoreTag)
                 needsUpdate = true;
             if (currentPermissionTag.ChatTag != dbTag.ChatTag)
@@ -378,9 +432,9 @@ public static class Database
                 currentPermissionTag.ChatSound = dbTag.ChatSound;
                 currentPermissionTag.IsExternal = false;
                 
-                Console.WriteLine($"Updating player {player.PlayerName} tags due to permission change");
+                Console.WriteLine($"Updating player tags due to permission change (SteamID: {steamId})");
 
-                PlayerTagsList[player.SteamID] = currentPermissionTag;
+                PlayerTagsList[steamId] = currentPermissionTag;
                 player.SetScoreTag(currentPermissionTag.ScoreTag);
                 
                 using DbConnection connection = await ConnectAsync();
@@ -399,13 +453,13 @@ public static class Database
                     currentPermissionTag.ChatColor,
                     currentPermissionTag.NameColor,
                     currentPermissionTag.IsExternal,
-                    player.SteamID
+                    SteamID = steamId
                 });
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error refreshing player tags: {ex.Message}");
+            Console.WriteLine($"Error refreshing player tags (SteamID: {steamId}): {ex.Message}");
         }
     }
 }

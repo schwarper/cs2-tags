@@ -18,7 +18,7 @@ namespace Tags;
 public class Tags : BasePlugin, IPluginConfig<Config>
 {
     public override string ModuleName => "Tags";
-    public override string ModuleVersion => "1.7";
+    public override string ModuleVersion => "1.8";
     public override string ModuleAuthor => "schwarper";
 
     public Config Config { get; set; } = new();
