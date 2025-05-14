@@ -99,8 +99,18 @@ public static class Database
 
     public static async Task<DbConnection> ConnectAsync()
     {
-        SQLitePCL.Batteries.Init();
-        DbConnection connection = UseMySQL ? new MySqlConnection(GlobalDatabaseConnectionString) : new SqliteConnection(GlobalDatabaseConnectionString);
+        DbConnection connection;
+
+        if (UseMySQL)
+        {
+            connection = new MySqlConnection(GlobalDatabaseConnectionString);
+        }
+        else
+        {
+            SQLitePCL.Batteries.Init();
+            connection = new SqliteConnection(GlobalDatabaseConnectionString);
+        }
+
         await connection.OpenAsync();
         return connection;
     }
