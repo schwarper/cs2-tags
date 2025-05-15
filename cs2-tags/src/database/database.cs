@@ -100,7 +100,7 @@ public static class Database
     public static async Task<DbConnection> ConnectAsync()
     {
         DbConnection connection;
-
+        
         if (UseMySQL)
         {
             connection = new MySqlConnection(GlobalDatabaseConnectionString);
@@ -110,7 +110,7 @@ public static class Database
             SQLitePCL.Batteries.Init();
             connection = new SqliteConnection(GlobalDatabaseConnectionString);
         }
-
+        
         await connection.OpenAsync();
         return connection;
     }
@@ -242,69 +242,141 @@ public static class Database
         try
         {
             ulong steamId = player.SteamID;
-            Server.NextFrame(async () => await LoadPlayerAsync(steamId, player));
+            Tag playerDefaultTag = player.GetTag();
+            
+            string playerName = player.PlayerName;
+            
+            Server.NextFrame(async () => 
+            {
+                try
+                {
+                    using DbConnection connection = await ConnectAsync();
+
+                    Tag? result = (await connection.QueryAsync<Tag>(@"
+                        SELECT * FROM tags WHERE SteamID = @SteamID;", new { SteamID = steamId }
+                    )).SingleOrDefault();
+
+                    if (result == null)
+                    {
+                        await InsertNewPlayerAsync(connection, steamId, playerDefaultTag);
+                        
+                        Server.NextFrame(() => 
+                        {
+                            if (player != null && player.IsValid)
+                            {
+                                PlayerTagsList[steamId] = playerDefaultTag;
+                                player.SetScoreTag(playerDefaultTag.ScoreTag);
+                            }
+                        });
+                        return;
+                    }
+
+                    bool needsUpdate = false;
+                    if (playerDefaultTag.ScoreTag != result.ScoreTag) needsUpdate = true;
+                    if (playerDefaultTag.ChatTag != result.ChatTag) needsUpdate = true;
+                    if (playerDefaultTag.ChatColor != result.ChatColor) needsUpdate = true;
+                    if (playerDefaultTag.NameColor != result.NameColor) needsUpdate = true;
+
+                    Tag tagToUse;
+                    
+                    if (result.IsExternal)
+                    {
+                        tagToUse = result;
+                    }
+                    else if (needsUpdate)
+                    {
+                        playerDefaultTag.Visibility = result.Visibility;
+                        playerDefaultTag.ChatSound = result.ChatSound;
+                        playerDefaultTag.IsExternal = false;
+                        tagToUse = playerDefaultTag;
+                        
+                        // Update the database
+                        await connection.ExecuteAsync(@"
+                            UPDATE tags SET 
+                                ScoreTag = @ScoreTag,
+                                ChatTag = @ChatTag,
+                                ChatColor = @ChatColor,
+                                NameColor = @NameColor,
+                                IsExternal = @IsExternal
+                            WHERE SteamID = @SteamID;
+                        ", new
+                        {
+                            playerDefaultTag.ScoreTag,
+                            playerDefaultTag.ChatTag,
+                            playerDefaultTag.ChatColor,
+                            playerDefaultTag.NameColor,
+                            playerDefaultTag.IsExternal,
+                            SteamID = steamId
+                        });
+                        
+                        Console.WriteLine($"Updated tags for player {playerName} (SteamID: {steamId}) due to permission change");
+                    }
+                    else
+                    {
+                        tagToUse = result;
+                    }
+                    
+                    Server.NextFrame(() => 
+                    {
+                        if (player != null && player.IsValid)
+                        {
+                            PlayerTagsList[steamId] = tagToUse;
+                            player.SetScoreTag(tagToUse.ScoreTag);
+                        }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error loading player tags (SteamID: {steamId}): {ex.Message}");
+                    
+                    Server.NextFrame(() => 
+                    {
+                        if (player != null && player.IsValid && !PlayerTagsList.ContainsKey(steamId))
+                        {
+                            PlayerTagsList[steamId] = playerDefaultTag;
+                            player.SetScoreTag(playerDefaultTag.ScoreTag);
+                        }
+                    });
+                }
+            });
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error preparing to load player: {ex.Message}");
         }
     }
-
-    public static async Task LoadPlayerAsync(ulong steamId, CCSPlayerController player)
+    
+    private static async Task InsertNewPlayerAsync(DbConnection connection, ulong steamId, Tag playerData)
     {
-        if (player == null || !player.IsValid)
-        {
-            Console.WriteLine($"Player became invalid during LoadPlayerAsync (SteamID: {steamId})");
-            return;
-        }
-        
         try
         {
-            using DbConnection connection = await ConnectAsync();
-
-            Tag? result = (await connection.QueryAsync<Tag>(@"
-                SELECT * FROM tags WHERE SteamID = @SteamID;", new { SteamID = steamId }
-            )).SingleOrDefault();
-
-            if (result == null)
+            await connection.ExecuteAsync(@"
+                INSERT INTO tags (SteamID, ScoreTag, ChatTag, ChatColor, NameColor, Visibility, IsExternal) 
+                VALUES (@SteamID, @ScoreTag, @ChatTag, @ChatColor, @NameColor, @Visibility, @IsExternal);
+            ", new
             {
-                await InsertNewPlayer(connection, steamId, player);
-                return;
-            }
-
-            await RefreshPlayerTagsAsync(steamId, player, result);
-
-            if (!PlayerTagsList.ContainsKey(steamId))
-            {
-                Tag playerTag = PlayerTagsList.TryGetValue(steamId, out Tag? existingTag)
-                    ? existingTag
-                    : result;
-
-                PlayerTagsList[steamId] = playerTag;
-                player.SetScoreTag(playerTag.ScoreTag);
-            }
+                SteamID = steamId,
+                playerData.ScoreTag,
+                playerData.ChatTag,
+                playerData.ChatColor,
+                playerData.NameColor,
+                playerData.Visibility,
+                playerData.IsExternal
+            });
+            
+            Console.WriteLine($"Successfully inserted new player (SteamID: {steamId})");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error loading player tags (SteamID: {steamId}): {ex.Message}");
-
-            if (!PlayerTagsList.ContainsKey(steamId))
-            {
-                if (player != null && player.IsValid)
-                {
-                    Tag defaultTag = player.GetTag();
-                    PlayerTagsList[steamId] = defaultTag;
-                    player.SetScoreTag(defaultTag.ScoreTag);
-                }
-            }
+            Console.WriteLine($"Error inserting new player (SteamID: {steamId}): {ex.Message}");
         }
     }
+
 
     public static async Task InsertNewPlayer(DbConnection connection, ulong steamId, CCSPlayerController player)
     {
         try
         {
-            // Check player validity again
             if (player == null || !player.IsValid)
             {
                 Console.WriteLine($"Player became invalid during InsertNewPlayer (SteamID: {steamId})");
@@ -363,113 +435,44 @@ public static class Database
                     IsExternal = tags.IsExternal
                 };
                 
-                Server.NextFrame(async () => await SavePlayerAsync(steamId, tagsCopy));
+                Server.NextFrame(async () => 
+                {
+                    try
+                    {
+                        using DbConnection connection = await ConnectAsync();
+
+                        await connection.ExecuteAsync(@"
+                            UPDATE tags SET 
+                                ScoreTag = @ScoreTag,
+                                ChatTag = @ChatTag,
+                                ChatColor = @ChatColor,
+                                NameColor = @NameColor,
+                                Visibility = @Visibility,
+                                IsExternal = @IsExternal
+                            WHERE SteamID = @SteamID;
+                        ", new
+                        {
+                            tagsCopy.ScoreTag,
+                            tagsCopy.ChatTag,
+                            tagsCopy.ChatColor,
+                            tagsCopy.NameColor,
+                            tagsCopy.Visibility,
+                            tagsCopy.IsExternal,
+                            SteamID = steamId
+                        });
+
+                        Server.NextFrame(() => PlayerTagsList.Remove(steamId));
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error saving player data (SteamID: {steamId}): {ex.Message}");
+                    }
+                });
             }
         }
         catch (Exception ex) 
         {
             Console.WriteLine($"Error preparing to save player: {ex.Message}");
-        }
-    }
-
-    public static async Task SavePlayerAsync(ulong steamId, Tag playerData)
-    {
-        try
-        {
-            using DbConnection connection = await ConnectAsync();
-
-            await connection.ExecuteAsync(@"
-                UPDATE tags SET 
-                    ScoreTag = @ScoreTag,
-                    ChatTag = @ChatTag,
-                    ChatColor = @ChatColor,
-                    NameColor = @NameColor,
-                    Visibility = @Visibility,
-                    IsExternal = @IsExternal
-                WHERE SteamID = @SteamID;
-            ", new
-            {
-                playerData.ScoreTag,
-                playerData.ChatTag,
-                playerData.ChatColor,
-                playerData.NameColor,
-                playerData.Visibility,
-                playerData.IsExternal,
-                SteamID = steamId
-            });
-
-            PlayerTagsList.Remove(steamId);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error saving player data (SteamID: {steamId}): {ex.Message}");
-        }
-    }
-
-    public static async Task RefreshPlayerTagsAsync(ulong steamId, CCSPlayerController player, Tag dbTag)
-    {
-        if (player == null || !player.IsValid)
-        {
-            Console.WriteLine($"Player became invalid during RefreshPlayerTagsAsync (SteamID: {steamId})");
-            return;
-        }
-        
-        try
-        {
-            if (dbTag.IsExternal)
-            {
-                PlayerTagsList[steamId] = dbTag;
-                player.SetScoreTag(dbTag.ScoreTag);
-                return;
-            }
-            
-            Tag currentPermissionTag = player.GetTag();
-
-            bool needsUpdate = false;
-
-            if (currentPermissionTag.ScoreTag != dbTag.ScoreTag)
-                needsUpdate = true;
-            if (currentPermissionTag.ChatTag != dbTag.ChatTag)
-                needsUpdate = true;
-            if (currentPermissionTag.ChatColor != dbTag.ChatColor)
-                needsUpdate = true;
-            if (currentPermissionTag.NameColor != dbTag.NameColor)
-                needsUpdate = true;
-
-            if (needsUpdate)
-            {
-                currentPermissionTag.Visibility = dbTag.Visibility;
-                currentPermissionTag.ChatSound = dbTag.ChatSound;
-                currentPermissionTag.IsExternal = false;
-                
-                Console.WriteLine($"Updating player tags due to permission change (SteamID: {steamId})");
-
-                PlayerTagsList[steamId] = currentPermissionTag;
-                player.SetScoreTag(currentPermissionTag.ScoreTag);
-                
-                using DbConnection connection = await ConnectAsync();
-                await connection.ExecuteAsync(@"
-                    UPDATE tags SET 
-                        ScoreTag = @ScoreTag,
-                        ChatTag = @ChatTag,
-                        ChatColor = @ChatColor,
-                        NameColor = @NameColor,
-                        IsExternal = @IsExternal
-                    WHERE SteamID = @SteamID;
-                ", new
-                {
-                    currentPermissionTag.ScoreTag,
-                    currentPermissionTag.ChatTag,
-                    currentPermissionTag.ChatColor,
-                    currentPermissionTag.NameColor,
-                    currentPermissionTag.IsExternal,
-                    SteamID = steamId
-                });
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error refreshing player tags (SteamID: {steamId}): {ex.Message}");
         }
     }
 }
