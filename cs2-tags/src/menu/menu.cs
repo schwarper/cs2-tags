@@ -2,6 +2,7 @@
 using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Entities;
+using CS2MenuManager.API.Class;
 using CS2MenuManager.API.Enum;
 using CS2MenuManager.API.Interface;
 using CS2MenuManager.API.Menu;
@@ -16,29 +17,12 @@ public static class Menu
 
     static Menu()
     {
-        Dictionary<string, Type> menuTypes = new()
-        {
-            { "ChatMenu", typeof(ChatMenu) },
-            { "ConsoleMenu", typeof(ConsoleMenu) },
-            { "CenterHtmlMenu", typeof(CenterHtmlMenu) },
-            { "WasdMenu", typeof(WasdMenu) },
-            { "ScreenMenu", typeof(ScreenMenu) },
-        };
-
-        _menuType = menuTypes.TryGetValue(Instance.Config.Settings.MenuType, out Type? menuType) ? menuType : typeof(CenterHtmlMenu);
+        _menuType = MenuManager.MenuTypesList.TryGetValue(Instance.Config.Settings.MenuType, out Type? menuType) ? menuType : typeof(CenterHtmlMenu);
     }
 
     public static IMenu MenuByType(string title)
     {
-        return _menuType switch
-        {
-            Type t when t == typeof(ChatMenu) => new ChatMenu(title, Instance),
-            Type t when t == typeof(ConsoleMenu) => new ConsoleMenu(title, Instance),
-            Type t when t == typeof(CenterHtmlMenu) => new CenterHtmlMenu(title, Instance),
-            Type t when t == typeof(WasdMenu) => new WasdMenu(title, Instance),
-            Type t when t == typeof(ScreenMenu) => new ScreenMenu(title, Instance) { ShowResolutionsOption = false },
-            _ => new CenterHtmlMenu(title, Instance)
-        };
+        return MenuManager.MenuByType(_menuType, title, Instance);
     }
 
     public static IMenu MainMenu(CCSPlayerController player)
