@@ -238,105 +238,70 @@ public static class Database
             Console.WriteLine("Attempted to load an invalid player");
             return;
         }
-        
+
         try
         {
             ulong steamId = player.SteamID;
             Tag playerDefaultTag = player.GetTag();
-            
             string playerName = player.PlayerName;
-            
-            Server.NextFrame(async () => 
+
+            Server.NextFrame(async () =>
             {
                 try
                 {
                     using DbConnection connection = await ConnectAsync();
 
                     Tag? result = (await connection.QueryAsync<Tag>(@"
-                        SELECT * FROM tags WHERE SteamID = @SteamID;", new { SteamID = steamId }
+                        SELECT * FROM tags WHERE SteamID = @SteamID;",
+                        new { SteamID = steamId }
                     )).SingleOrDefault();
 
                     if (result == null)
                     {
-                        await InsertNewPlayerAsync(connection, steamId, playerDefaultTag);
-                        
-                        Server.NextFrame(() => 
+                        await InsertNewPlayerAsync(connection, steamId, new Tag
+                        {
+                            Visibility = true,
+                            ChatSound = true,
+                            IsExternal = false
+                        });
+
+                        Server.NextFrame(() =>
                         {
                             if (player != null && player.IsValid)
                             {
                                 PlayerTagsList[steamId] = playerDefaultTag;
+                                Tags.Api.TagsUpdatedPre(player, playerDefaultTag);
                                 player.SetScoreTag(playerDefaultTag.ScoreTag);
+                                Tags.Api.TagsUpdatedPost(player, playerDefaultTag);
                             }
                         });
                         return;
                     }
 
-                    bool needsUpdate = false;
-                    if (playerDefaultTag.ScoreTag != result.ScoreTag) needsUpdate = true;
-                    if (playerDefaultTag.ChatTag != result.ChatTag) needsUpdate = true;
-                    if (playerDefaultTag.ChatColor != result.ChatColor) needsUpdate = true;
-                    if (playerDefaultTag.NameColor != result.NameColor) needsUpdate = true;
+                    Tag finalTag = new()
+                    {
+                        Visibility = result.Visibility,
+                        ChatSound = result.ChatSound,
+                        IsExternal = result.IsExternal
+                    };
 
-                    Tag tagToUse;
-                    
-                    if (result.IsExternal)
-                    {
-                        tagToUse = result;
-                    }
-                    else if (needsUpdate)
-                    {
-                        playerDefaultTag.Visibility = result.Visibility;
-                        playerDefaultTag.ChatSound = result.ChatSound;
-                        playerDefaultTag.IsExternal = false;
-                        tagToUse = playerDefaultTag;
-                        
-                        // Update the database
-                        await connection.ExecuteAsync(@"
-                            UPDATE tags SET 
-                                ScoreTag = @ScoreTag,
-                                ChatTag = @ChatTag,
-                                ChatColor = @ChatColor,
-                                NameColor = @NameColor,
-                                IsExternal = @IsExternal
-                            WHERE SteamID = @SteamID;
-                        ", new
-                        {
-                            playerDefaultTag.ScoreTag,
-                            playerDefaultTag.ChatTag,
-                            playerDefaultTag.ChatColor,
-                            playerDefaultTag.NameColor,
-                            playerDefaultTag.IsExternal,
-                            SteamID = steamId
-                        });
-                        
-                        Console.WriteLine($"Updated tags for player {playerName} (SteamID: {steamId}) due to permission change");
-                    }
-                    else
-                    {
-                        tagToUse = result;
-                    }
-                    
-                    Server.NextFrame(() => 
+                    Server.NextFrame(() =>
                     {
                         if (player != null && player.IsValid)
                         {
-                            PlayerTagsList[steamId] = tagToUse;
-                            player.SetScoreTag(tagToUse.ScoreTag);
+                            PlayerTagsList[steamId] = finalTag;
+                            if (finalTag.Visibility)
+                            {
+                                Tags.Api.TagsUpdatedPre(player, finalTag);
+                                player.SetScoreTag(finalTag.ScoreTag);
+                                Tags.Api.TagsUpdatedPost(player, finalTag);
+                            }
                         }
                     });
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Error loading player tags (SteamID: {steamId}): {ex.Message}");
-                    
-                    Server.NextFrame(() => 
-                    {
-                        if (player != null && player.IsValid && !PlayerTagsList.ContainsKey(steamId))
-                        {
-                            PlayerTagsList[steamId] = playerDefaultTag;
-                            player.SetScoreTag(playerDefaultTag.ScoreTag);
-                        }
-                    });
                 }
             });
         }
@@ -413,29 +378,22 @@ public static class Database
     public static void SavePlayer(CCSPlayerController player)
     {
         if (player == null || !player.IsValid)
-        {
-            Console.WriteLine("Attempted to save an invalid player");
             return;
-        }
-        
-        try 
+
+        try
         {
             ulong steamId = player.SteamID;
-            
+
             if (PlayerTagsList.TryGetValue(steamId, out Tag? tags))
             {
                 Tag tagsCopy = new()
                 {
-                    ScoreTag = tags.ScoreTag,
-                    ChatTag = tags.ChatTag,
-                    ChatColor = tags.ChatColor,
-                    NameColor = tags.NameColor,
                     Visibility = tags.Visibility,
                     ChatSound = tags.ChatSound,
                     IsExternal = tags.IsExternal
                 };
-                
-                Server.NextFrame(async () => 
+
+                Server.NextFrame(async () =>
                 {
                     try
                     {
@@ -443,25 +401,17 @@ public static class Database
 
                         await connection.ExecuteAsync(@"
                             UPDATE tags SET 
-                                ScoreTag = @ScoreTag,
-                                ChatTag = @ChatTag,
-                                ChatColor = @ChatColor,
-                                NameColor = @NameColor,
                                 Visibility = @Visibility,
+                                ChatSound = @ChatSound,
                                 IsExternal = @IsExternal
                             WHERE SteamID = @SteamID;
                         ", new
                         {
-                            tagsCopy.ScoreTag,
-                            tagsCopy.ChatTag,
-                            tagsCopy.ChatColor,
-                            tagsCopy.NameColor,
                             tagsCopy.Visibility,
+                            tagsCopy.ChatSound,
                             tagsCopy.IsExternal,
                             SteamID = steamId
                         });
-
-                        Server.NextFrame(() => PlayerTagsList.Remove(steamId));
                     }
                     catch (Exception ex)
                     {
@@ -470,7 +420,7 @@ public static class Database
                 });
             }
         }
-        catch (Exception ex) 
+        catch (Exception ex)
         {
             Console.WriteLine($"Error preparing to save player: {ex.Message}");
         }

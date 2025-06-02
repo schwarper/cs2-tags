@@ -165,6 +165,50 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         return HookResult.Continue;
     }
 
+    [GameEventHandler]
+    public HookResult OnMapStart(EventGameStart @event, GameEventInfo info)
+    {
+        Task.Delay(1000).ContinueWith(_ =>
+        {
+            Server.NextFrame(() =>
+            {
+                foreach (var player in Utilities.GetPlayers())
+                {
+                    if (player == null || !player.IsValid || player.IsBot)
+                        continue;
+
+                    if (PlayerTagsList.TryGetValue(player.SteamID, out Tag? tag))
+                    {
+                        Console.WriteLine($"Reapplying tags for player {player.PlayerName} (SteamID: {player.SteamID})");
+
+                        Tags.Api.TagsUpdatedPre(player, tag);
+                        if (tag.Visibility)
+                        {
+                            player.SetScoreTag(tag.ScoreTag);
+                        }
+                        Tags.Api.TagsUpdatedPost(player, tag);
+                    }
+                }
+            });
+        });
+        return HookResult.Continue;
+    }
+
+    [GameEventHandler]
+    public HookResult OnMapEnd(EventGameEnd @event, GameEventInfo info)
+    {
+        foreach (var player in Utilities.GetPlayers())
+        {
+            if (player == null || !player.IsValid || player.IsBot)
+                continue;
+
+            Database.SavePlayer(player);
+        }
+        return HookResult.Continue;
+    }
+
+
+
     [GameEventHandler(HookMode.Pre)]
     public HookResult OnPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo info)
     {
