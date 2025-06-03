@@ -280,7 +280,7 @@ public static class Database
                         ChatColor = result.ChatColor,
                         NameColor = result.NameColor,
                         Visibility = result.Visibility,
-                        ChatSound = true,
+                        ChatSound = playerDefaultTag.ChatSound,
                         IsExternal = result.IsExternal
                     };
 
