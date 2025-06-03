@@ -280,6 +280,7 @@ public static class Database
                         ChatColor = result.ChatColor,
                         NameColor = result.NameColor,
                         Visibility = result.Visibility,
+                        ChatSound = true,
                         IsExternal = result.IsExternal
                     };
 
@@ -398,6 +399,7 @@ public static class Database
                     ChatColor = tags.IsExternal ? null : tags.ChatColor,
                     NameColor = tags.IsExternal ? null : tags.NameColor,
                     Visibility = tags.Visibility,
+                    ChatSound = tags.ChatSound,
                     IsExternal = tags.IsExternal
                 };
 
