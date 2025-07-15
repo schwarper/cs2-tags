@@ -1,19 +1,16 @@
-﻿// Modified TagsAPI with recursion protection
-using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Modules.Extensions;
+﻿using CounterStrikeSharp.API.Core;
 using TagsApi;
-using static Tags.Tags;
 using static TagsApi.Tags;
 
 namespace Tags;
 
 public class TagsAPI : ITagApi
 {
-    private bool _isProcessingTagsUpdatedPre = false;
-    private bool _isProcessingTagsUpdatedPost = false;
-    private bool _isProcessingMessagePre = false;
-    private bool _isProcessingMessage = false;
-    private bool _isProcessingMessagePost = false;
+    private bool _isProcessingTagsUpdatedPre;
+    private bool _isProcessingTagsUpdatedPost;
+    private bool _isProcessingMessagePre;
+    private bool _isProcessingMessage;
+    private bool _isProcessingMessagePost;
 
     public event Func<MessageProcess, HookResult>? OnMessageProcessPre;
     public event Func<MessageProcess, HookResult>? OnMessageProcess;
@@ -26,9 +23,10 @@ public class TagsAPI : ITagApi
         if (_isProcessingMessagePre)
             return HookResult.Continue;
 
+        _isProcessingMessagePre = true;
+
         try
         {
-            _isProcessingMessagePre = true;
             return OnMessageProcessPre?.Invoke(messageProcess) ?? HookResult.Continue;
         }
         finally
@@ -42,9 +40,10 @@ public class TagsAPI : ITagApi
         if (_isProcessingMessage)
             return HookResult.Continue;
 
+        _isProcessingMessage = true;
+
         try
         {
-            _isProcessingMessage = true;
             return OnMessageProcess?.Invoke(messageProcess) ?? HookResult.Continue;
         }
         finally
@@ -58,9 +57,10 @@ public class TagsAPI : ITagApi
         if (_isProcessingMessagePost)
             return;
 
+        _isProcessingMessagePost = true;
+
         try
         {
-            _isProcessingMessagePost = true;
             OnMessageProcessPost?.Invoke(messageProcess);
         }
         finally
@@ -71,13 +71,13 @@ public class TagsAPI : ITagApi
 
     public void TagsUpdatedPre(CCSPlayerController player, Tag tag)
     {
-
         if (_isProcessingTagsUpdatedPre)
             return;
 
+        _isProcessingTagsUpdatedPre = true;
+
         try
         {
-            _isProcessingTagsUpdatedPre = true;
             OnTagsUpdatedPre?.Invoke(player, tag);
         }
         finally
@@ -91,9 +91,10 @@ public class TagsAPI : ITagApi
         if (_isProcessingTagsUpdatedPost)
             return;
 
+        _isProcessingTagsUpdatedPost = true;
+
         try
         {
-            _isProcessingTagsUpdatedPost = true;
             OnTagsUpdatedPost?.Invoke(player, tag);
         }
         finally
@@ -104,246 +105,46 @@ public class TagsAPI : ITagApi
 
     public void AddAttribute(CCSPlayerController player, TagType types, TagPrePost prePost, string newValue)
     {
-        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
-        {
-            playerData = player.GetTag();
-            PlayerTagsList[player.SteamID] = playerData;
-        }
-
-        if ((types & TagType.ScoreTag) != 0)
-        {
-            string value = GetPrePostValue(prePost, playerData.ScoreTag, newValue);
-            playerData.ScoreTag = value;
-            player.SetScoreTag(value);
-        }
-        if ((types & TagType.ChatTag) != 0)
-        {
-            string value = GetPrePostValue(prePost, playerData.ChatTag, newValue);
-            playerData.ChatTag = value;
-        }
-        if ((types & TagType.NameColor) != 0)
-        {
-            string value = GetPrePostValue(prePost, playerData.NameColor, newValue);
-            playerData.NameColor = value;
-        }
-        if ((types & TagType.ChatColor) != 0)
-        {
-            string value = GetPrePostValue(prePost, playerData.ChatColor, newValue);
-            playerData.ChatColor = value;
-        }
-    }
-
-    private static string GetPrePostValue(TagPrePost prePost, string? oldValue, string newValue)
-    {
-        return prePost switch
-        {
-            TagPrePost.Pre => newValue + oldValue,
-            TagPrePost.Post => oldValue + newValue,
-            _ => newValue
-        };
+        player.AddAttribute(types, prePost, newValue);
     }
 
     public void SetAttribute(CCSPlayerController player, TagType types, string newValue)
     {
-        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
-        {
-            playerData = player.GetTag();
-            PlayerTagsList[player.SteamID] = playerData;
-        }
-
-        if ((types & TagType.ScoreTag) != 0)
-        {
-            playerData.ScoreTag = newValue;
-            player.SetScoreTag(newValue);
-        }
-        if ((types & TagType.ChatTag) != 0)
-        {
-            playerData.ChatTag = newValue;
-        }
-        if ((types & TagType.NameColor) != 0)
-        {
-            playerData.NameColor = newValue;
-        }
-        if ((types & TagType.ChatColor) != 0)
-        {
-            playerData.ChatColor = newValue;
-        }
+        player.SetAttribute(types, newValue);
     }
 
     public string? GetAttribute(CCSPlayerController player, TagType type)
     {
-        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
-        {
-            playerData = player.GetTag();
-            PlayerTagsList[player.SteamID] = playerData;
-        }
-
-        return type switch
-        {
-            TagType.ScoreTag => playerData.ScoreTag,
-            TagType.ChatTag => playerData.ChatTag,
-            TagType.NameColor => playerData.NameColor,
-            TagType.ChatColor => playerData.ChatColor,
-            _ => null
-        };
+        return player.GetAttribute(type);
     }
 
     public void ResetAttribute(CCSPlayerController player, TagType types)
     {
-        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
-        {
-            playerData = player.GetTag();
-            PlayerTagsList[player.SteamID] = playerData;
-            return;
-        }
-
-        Tag defaultTag = player.GetTag();
-
-        if ((types & TagType.ScoreTag) != 0)
-        {
-            playerData.ScoreTag = defaultTag.ScoreTag;
-            player.SetScoreTag(defaultTag.ScoreTag);
-        }
-        if ((types & TagType.ChatTag) != 0)
-        {
-            playerData.ChatTag = defaultTag.ChatTag;
-        }
-        if ((types & TagType.NameColor) != 0)
-        {
-            playerData.NameColor = defaultTag.NameColor;
-        }
-        if ((types & TagType.ChatColor) != 0)
-        {
-            playerData.ChatColor = defaultTag.ChatColor;
-        }
+        player.ResetAttribute(types);
     }
 
     public bool GetPlayerChatSound(CCSPlayerController player)
     {
-        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
-        {
-            playerData = player.GetTag();
-            PlayerTagsList[player.SteamID] = playerData;
-        }
-        return playerData.ChatSound;
+        return player.GetChatSound();
     }
 
     public void SetPlayerChatSound(CCSPlayerController player, bool value)
     {
-        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
-        {
-            playerData = player.GetTag();
-            PlayerTagsList[player.SteamID] = playerData;
-        }
-        playerData.ChatSound = value;
+        player.SetChatSound(value);
     }
 
     public bool GetPlayerVisibility(CCSPlayerController player)
     {
-        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
-        {
-            playerData = player.GetTag();
-            PlayerTagsList[player.SteamID] = playerData;
-        }
-        return playerData.Visibility;
+        return player.GetVisibility();
     }
 
     public void SetPlayerVisibility(CCSPlayerController player, bool value)
     {
-        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
-        {
-            playerData = player.GetTag();
-            PlayerTagsList[player.SteamID] = playerData;
-        }
-        playerData.Visibility = value;
-        player.SetScoreTag(value ? playerData.ScoreTag : Instance.Config.Default.ScoreTag);
+        player.SetVisibility(value);
     }
 
     public void ReloadTags()
     {
-        Instance.Config.Reload();
-        UpdateConfig(Instance.Config, true);
-    }
-
-    public void SetExternalTag(CCSPlayerController player, TagType types, string newValue, bool persistent = true)
-    {
-        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
-        {
-            playerData = player.GetTag();
-            PlayerTagsList[player.SteamID] = playerData;
-        }
-        
-        playerData.IsExternal = true;
-        
-        if ((types & TagType.ScoreTag) != 0)
-        {
-            playerData.ScoreTag = newValue;
-            player.SetScoreTag(newValue);
-        }
-        if ((types & TagType.ChatTag) != 0)
-        {
-            playerData.ChatTag = newValue;
-        }
-        if ((types & TagType.NameColor) != 0)
-        {
-            playerData.NameColor = newValue;
-        }
-        if ((types & TagType.ChatColor) != 0)
-        {
-            playerData.ChatColor = newValue;
-        }
-        
-        if (persistent)
-        {
-            Database.SavePlayer(player);
-        }
-    }
-
-    public void SetPlayerTagExternal(CCSPlayerController player, bool isExternal)
-    {
-        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
-        {
-            playerData = player.GetTag();
-            PlayerTagsList[player.SteamID] = playerData;
-        }
-        
-        playerData.IsExternal = isExternal;
-        
-        Database.SavePlayer(player);
-    }
-
-    public bool IsPlayerTagExternal(CCSPlayerController player)
-    {
-        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
-        {
-            return false;
-        }
-        
-        return playerData.IsExternal;
-    }
-
-    public void ClearExternalTag(CCSPlayerController player, bool resetToDefaultPermission = true)
-    {
-        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? playerData))
-        {
-            playerData = player.GetTag();
-            PlayerTagsList[player.SteamID] = playerData;
-        }
-        
-        playerData.IsExternal = false;
-        
-        if (resetToDefaultPermission)
-        {
-            Tag permissionTag = player.GetTag();
-            
-            permissionTag.Visibility = playerData.Visibility;
-            permissionTag.ChatSound = playerData.ChatSound;
-            permissionTag.IsExternal = false;
-            
-            PlayerTagsList[player.SteamID] = permissionTag;
-            player.SetScoreTag(permissionTag.ScoreTag);
-        }
-        
-        Database.SavePlayer(player);
+        TagExtensions.ReloadTags();
     }
 }
