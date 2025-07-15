@@ -229,8 +229,6 @@ public static partial class TagExtensions
 
             Tag tag = GetOrCreatePlayerTag(player, true);
             player.SetScoreTag(tag.ScoreTag);
-
-            Console.WriteLine(tag);
         }
     }
 }
