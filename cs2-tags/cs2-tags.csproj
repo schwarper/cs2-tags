@@ -5,17 +5,12 @@
 		<Nullable>enable</Nullable>
 		<OutputPath>$(ProjectDir)..\BuildOutput\plugins\cs2-tags\</OutputPath>
 		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+		<CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="CounterStrikeSharp.API" Version="1.0.314" />
-		<PackageReference Include="CS2MenuManager" Version="1.0.34" />
-		<PackageReference Include="Dapper" Version="2.1.66" />
-		<PackageReference Include="MySqlConnector" Version="2.4.0" />
-		<PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.3" />
+		<PackageReference Include="CounterStrikeSharp.API" Version="1.0.327" />
 		<ProjectReference Include="..\TagsApi\TagsApi.csproj" />
-		<None Update="lang\**\*.*" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 
 	<Target Name="PostBuild" AfterTargets="Build">
@@ -25,15 +20,6 @@
 		<ItemGroup>
 			<FilesToDelete Include="$(OutputPath)TagsApi.dll" />
 			<FilesToDelete Include="$(OutputPath)TagsApi.pdb" />
-			<FilesToDelete Include="$(OutputPath)CounterStrikeSharp.API.dll" />
-			<FilesToDelete Include="$(OutputPath)McMaster.NETCore.Plugins.dll" />
-			<FilesToDelete Include="$(OutputPath)Microsoft.DotNet.PlatformAbstractions.dll" />
-			<FilesToDelete Include="$(OutputPath)Scrutor.dll" />
-			<FilesToDelete Include="$(OutputPath)System.Diagnostics.Eventlog.dll" />
-			<FilesToDelete Include="$(OutputPath)Microsoft.Extensions.*.dll" />
-			<FilesToDelete Include="$(OutputPath)Serilog*.dll" />
-			<FilesToDelete Include="$(OutputPath)CS2MenuManager.dll" />
-			<FilesToDelete Include="$(OutputPath)Tomlyn.dll" />
 		</ItemGroup>
 
 		<Copy SourceFiles="@(FilesToCopy)" DestinationFolder="$(ProjectDir)..\BuildOutput\configs\plugins\cs2-tags\" />

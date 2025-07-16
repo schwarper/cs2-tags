@@ -23,9 +23,4 @@ public interface ITagApi
     public bool GetPlayerVisibility(CCSPlayerController player);
     public void SetPlayerVisibility(CCSPlayerController player, bool value);
     public void ReloadTags();
-
-    void SetExternalTag(CCSPlayerController player, TagType types, string newValue, bool persistent = true);
-    void SetPlayerTagExternal(CCSPlayerController player, bool isExternal);
-    bool IsPlayerTagExternal(CCSPlayerController player);
-    void ClearExternalTag(CCSPlayerController player, bool resetToDefaultPermission = true);
 }

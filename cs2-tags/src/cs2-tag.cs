@@ -5,12 +5,10 @@ using CounterStrikeSharp.API.Core.Capabilities;
 using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Commands;
-using CounterStrikeSharp.API.Modules.Extensions;
 using CounterStrikeSharp.API.Modules.UserMessages;
 using CounterStrikeSharp.API.Modules.Utils;
 using TagsApi;
-using static Tags.Menu;
-using static Tags.TagsLibrary;
+using static Tags.TagExtensions;
 using static TagsApi.Tags;
 
 namespace Tags;
@@ -18,19 +16,18 @@ namespace Tags;
 public class Tags : BasePlugin, IPluginConfig<Config>
 {
     public override string ModuleName => "Tags";
-    public override string ModuleVersion => "1.11";
+    public override string ModuleVersion => "1.13";
     public override string ModuleAuthor => "schwarper";
 
-    public Config Config { get; set; } = new();
     public static readonly Dictionary<ulong, Tag> PlayerTagsList = [];
     public static readonly TagsAPI Api = new();
     public static Tags Instance { get; set; } = new();
+    public Config Config { get; set; } = new();
 
     public override void Load(bool hotReload)
     {
         Instance = this;
         Capabilities.RegisterPluginCapability(ITagApi.Capability, () => Api);
-        HookUserMessage(118, OnMessage, HookMode.Pre);
 
         foreach (string command in Config.Commands.TagsReload)
             AddCommand(command, "Tags Reload", Command_Tags_Reload);
@@ -38,92 +35,37 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         foreach (string command in Config.Commands.Visibility)
             AddCommand(command, "Visibility", Command_Visibility);
 
-        foreach (string command in Config.Commands.TagsMenu)
-            AddCommand(command, "Tags Menu", Command_Tags);
-
+        HookUserMessage(118, OnMessage, HookMode.Pre);
         AddCommandListener("css_admins_reload", Command_Admins_Reloads, HookMode.Pre);
-        UpdateConfig(Config, hotReload);
+
+        if (hotReload)
+            ReloadTags();
     }
 
     public override void Unload(bool hotReload)
     {
         UnhookUserMessage(118, OnMessage, HookMode.Pre);
         RemoveCommandListener("css_admins_reload", Command_Admins_Reloads, HookMode.Pre);
-
-        List<CCSPlayerController> players = Utilities.GetPlayers();
-        foreach (CCSPlayerController player in players)
-        {
-            if (player.IsBot)
-                continue;
-
-            Database.SavePlayer(player);
-        }
     }
 
     public void OnConfigParsed(Config config)
     {
+        config.Settings.Init();
         Config = config;
     }
 
-    public static void UpdateConfig(Config config, bool hotReload)
+    public static HookResult Command_Admins_Reloads(CCSPlayerController? player, CommandInfo info)
     {
-        if (config.DatabaseConnection.MySQL)
-        {
-            HashSet<string> keys =
-            [
-                config.DatabaseConnection.Host,
-                config.DatabaseConnection.Name,
-                config.DatabaseConnection.Password,
-                config.DatabaseConnection.User
-            ];
-
-            foreach (string key in keys)
-            {
-                if (string.IsNullOrEmpty(key))
-                    throw new Exception($"Database credentials are missing");
-            }
-        }
-
-        Database.CreateDatabase(config);
-
-        config.Settings.Tag = config.Settings.Tag.ReplaceColorTags();
-
-        config.Settings.TeamNames[CsTeam.None] = config.Settings.NoneName.ReplaceTags(CsTeam.None);
-        config.Settings.TeamNames[CsTeam.Spectator] = config.Settings.SpecName.ReplaceTags(CsTeam.Spectator);
-        config.Settings.TeamNames[CsTeam.Terrorist] = config.Settings.TName.ReplaceTags(CsTeam.Terrorist);
-        config.Settings.TeamNames[CsTeam.CounterTerrorist] = config.Settings.CTName.ReplaceTags(CsTeam.CounterTerrorist);
-
-        if (hotReload)
-        {
-            List<CCSPlayerController> players = Utilities.GetPlayers();
-            foreach (CCSPlayerController player in players)
-            {
-                if (player.IsBot)
-                    continue;
-
-                if (!PlayerTagsList.ContainsKey(player.SteamID))
-                {
-                    Tag defaultTag = player.GetTag();
-                    PlayerTagsList[player.SteamID] = defaultTag;
-                }
-
-                Database.LoadPlayer(player);
-            }
-        }
-    }
-
-    public HookResult Command_Admins_Reloads(CCSPlayerController? player, CommandInfo info)
-    {
-        Config.Reload();
-        UpdateConfig(Config, true);
+        ReloadConfig();
+        ReloadTags();
         return HookResult.Continue;
     }
 
     [RequiresPermissions("@css/root")]
-    public void Command_Tags_Reload(CCSPlayerController? player, CommandInfo info)
+    public static void Command_Tags_Reload(CCSPlayerController? player, CommandInfo info)
     {
-        Config.Reload();
-        UpdateConfig(Config, true);
+        ReloadConfig();
+        ReloadTags();
     }
 
     [RequiresPermissions("@css/admin")]
@@ -147,67 +89,15 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         }
     }
 
-    [CommandHelper(whoCanExecute: CommandUsage.CLIENT_ONLY)]
-    public void Command_Tags(CCSPlayerController? player, CommandInfo info)
-    {
-        if (player == null) return;
-
-        MainMenu(player).Display(player, 0);
-    }
-
     [GameEventHandler]
     public HookResult OnPlayerConnect(EventPlayerConnectFull @event, GameEventInfo info)
     {
         if (@event.Userid is not CCSPlayerController player || player.IsBot)
             return HookResult.Continue;
 
-        Database.LoadPlayer(player);
+        PlayerTagsList[player.SteamID] = player.GetTag();
         return HookResult.Continue;
     }
-
-    [GameEventHandler]
-    public HookResult OnMapStart(EventGameStart @event, GameEventInfo info)
-    {
-        Task.Delay(1000).ContinueWith(_ =>
-        {
-            Server.NextFrame(() =>
-            {
-                foreach (var player in Utilities.GetPlayers())
-                {
-                    if (player == null || !player.IsValid || player.IsBot)
-                        continue;
-
-                    if (PlayerTagsList.TryGetValue(player.SteamID, out Tag? tag))
-                    {
-                        Console.WriteLine($"Reapplying tags for player {player.PlayerName} (SteamID: {player.SteamID})");
-
-                        Tags.Api.TagsUpdatedPre(player, tag);
-                        if (tag.Visibility)
-                        {
-                            player.SetScoreTag(tag.ScoreTag);
-                        }
-                        Tags.Api.TagsUpdatedPost(player, tag);
-                    }
-                }
-            });
-        });
-        return HookResult.Continue;
-    }
-
-    [GameEventHandler]
-    public HookResult OnMapEnd(EventGameEnd @event, GameEventInfo info)
-    {
-        foreach (var player in Utilities.GetPlayers())
-        {
-            if (player == null || !player.IsValid || player.IsBot)
-                continue;
-
-            Database.SavePlayer(player);
-        }
-        return HookResult.Continue;
-    }
-
-
 
     [GameEventHandler(HookMode.Pre)]
     public HookResult OnPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo info)
@@ -215,7 +105,7 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         if (@event.Userid is not CCSPlayerController player || player.IsBot)
             return HookResult.Continue;
 
-        Database.SavePlayer(player);
+        PlayerTagsList.Remove(player.SteamID);
         return HookResult.Continue;
     }
 
@@ -228,8 +118,6 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         {
             tag = player.GetTag();
             PlayerTagsList[player.SteamID] = tag;
-
-            Database.LoadPlayer(player);
         }
 
         MessageProcess messageProcess = new()
@@ -270,37 +158,5 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         Api.MessageProcessPost(messageProcess);
 
         return HookResult.Changed;
-    }
-
-    internal static string? GetTagValue(Tag tag, TagType type)
-    {
-        return type switch
-        {
-            TagType.ScoreTag => tag.ScoreTag,
-            TagType.ChatTag => tag.ChatTag,
-            TagType.ChatColor => tag.ChatColor,
-            TagType.NameColor => tag.NameColor,
-            _ => null
-        };
-    }
-
-    internal static void SetPlayerTagValue(CCSPlayerController player, Tag playerData, TagType type, object value)
-    {
-        switch (type)
-        {
-            case TagType.ScoreTag:
-                playerData.ScoreTag = (string)value;
-                player.SetScoreTag(playerData.ScoreTag);
-                break;
-            case TagType.ChatTag:
-                playerData.ChatTag = (string)value;
-                break;
-            case TagType.ChatColor:
-                playerData.ChatColor = (string)value;
-                break;
-            case TagType.NameColor:
-                playerData.NameColor = (string)value;
-                break;
-        }
     }
 }
