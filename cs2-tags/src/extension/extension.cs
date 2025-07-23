@@ -37,7 +37,7 @@ public static partial class TagExtensions
         return ReplaceTags(string.Concat(args), team);
     }
 
-    private static Tag GetOrCreatePlayerTag(CCSPlayerController player, bool force)
+    public static Tag GetOrCreatePlayerTag(CCSPlayerController player, bool force)
     {
         if (force || !PlayerTagsList.TryGetValue(player.SteamID, out Tag? tag) || tag is null)
         {

@@ -16,7 +16,7 @@ namespace Tags;
 public class Tags : BasePlugin, IPluginConfig<Config>
 {
     public override string ModuleName => "Tags";
-    public override string ModuleVersion => "1.13";
+    public override string ModuleVersion => "1.14";
     public override string ModuleAuthor => "schwarper";
 
     public static readonly Dictionary<ulong, Tag> PlayerTagsList = [];
@@ -109,16 +109,23 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         return HookResult.Continue;
     }
 
+    [GameEventHandler(HookMode.Pre)]
+    public HookResult OnPlayerSpawn(EventPlayerSpawn @event, GameEventInfo info)
+    {
+        if (@event.Userid is not { } player || player.IsBot)
+            return HookResult.Continue;
+
+        var tag = GetOrCreatePlayerTag(player, false);
+        player.SetScoreTag(tag.ScoreTag);
+        return HookResult.Continue;
+    }
+
     public HookResult OnMessage(UserMessage um)
     {
         if (Utilities.GetPlayerFromIndex(um.ReadInt("entityindex")) is not CCSPlayerController player || player.IsBot)
             return HookResult.Continue;
 
-        if (!PlayerTagsList.TryGetValue(player.SteamID, out Tag? tag))
-        {
-            tag = player.GetTag();
-            PlayerTagsList[player.SteamID] = tag;
-        }
+        var tag = GetOrCreatePlayerTag(player, false);
 
         MessageProcess messageProcess = new()
         {
